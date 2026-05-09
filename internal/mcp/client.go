@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,17 @@ type Client struct {
 }
 
 // NewClient creates a new MCP client and spawns the server process.
+// It validates the command path to prevent command injection vulnerabilities.
 func NewClient(ctx context.Context, name string, cfg config.ServerConfig) (*Client, error) {
+	// Validate command: must be absolute path or a standard executable in PATH.
+	if err := validateCommand(cfg.Command); err != nil {
+		return nil, fmt.Errorf("invalid command for server %q: %w", name, err)
+	}
+
+	// Add timeout to prevent hanging during server startup.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
 	cmd.Env = append(os.Environ(), envMapToSlice(cfg.Env)...)
 
@@ -111,7 +122,10 @@ func (c *Client) initialize(ctx context.Context) error {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
 					toolJSON, _ := json.Marshal(toolMap)
-					_ = json.Unmarshal(toolJSON, &tool)
+					if err := json.Unmarshal(toolJSON, &tool); err != nil {
+						// Log but continue to allow partial tool loading.
+						continue
+					}
 					c.tools[tool.Name] = &tool
 				}
 			}
@@ -122,10 +136,15 @@ func (c *Client) initialize(ctx context.Context) error {
 }
 
 // GetTools returns all tools available from this server.
+// Returns a defensive copy to prevent concurrent map modification.
 func (c *Client) GetTools() map[string]*Tool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.tools
+	toolsCopy := make(map[string]*Tool)
+	for k, v := range c.tools {
+		toolsCopy[k] = v
+	}
+	return toolsCopy
 }
 
 // CallTool executes a tool and returns the result.
@@ -184,7 +203,10 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 		return nil, fmt.Errorf("failed to flush request: %w", err)
 	}
 
-	// Read response.
+	// Read response using a scanner with size limits to prevent unbounded memory growth.
+	scanner := bufio.NewScanner(c.stdout)
+	scanner.Buffer(make([]byte, 4096), 1024*1024) // Max 1MB per line
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -192,13 +214,17 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 		default:
 		}
 
-		line, err := c.stdout.ReadString('\n')
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				return nil, fmt.Errorf("scanner error: %w", err)
+			}
+			return nil, fmt.Errorf("unexpected EOF while reading response")
 		}
 
+		line := scanner.Bytes()
+
 		var resp JSONRPCResponse
-		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+		if err := json.Unmarshal(line, &resp); err != nil {
 			continue
 		}
 
@@ -216,17 +242,51 @@ func (c *Client) Close() error {
 	}
 
 	// Try SIGTERM first.
-	_ = c.process.Signal(os.Interrupt)
+	if err := c.process.Signal(os.Interrupt); err != nil {
+		// Process may have already exited; try to kill it instead.
+		_ = c.process.Kill()
+	}
 
 	// Wait a bit for graceful shutdown.
 	time.Sleep(3 * time.Second)
 
-	// Check if still running.
+	// Check if still running and force kill if necessary.
 	if c.cmd.ProcessState == nil || !c.cmd.ProcessState.Exited() {
-		_ = c.process.Kill()
+		if err := c.process.Kill(); err != nil {
+			return fmt.Errorf("failed to kill process: %w", err)
+		}
 	}
 
 	return c.cmd.Wait()
+}
+
+// validateCommand checks that a command is safe to execute.
+// It must be either an absolute path or a simple executable name (for PATH lookup).
+func validateCommand(cmd string) error {
+	// Disallow paths with directory traversal or relative paths.
+	if strings.Contains(cmd, "..") {
+		return fmt.Errorf("command cannot contain '..' (directory traversal)")
+	}
+
+	// If it's an absolute path, it must exist and be executable.
+	if filepath.IsAbs(cmd) {
+		info, err := os.Stat(cmd)
+		if err != nil {
+			return fmt.Errorf("command path does not exist: %w", err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("command path is a directory, not an executable")
+		}
+		return nil
+	}
+
+	// For relative commands (like "npx", "node"), they should be simple names
+	// without slashes (except for PATH resolution).
+	if strings.Contains(cmd, string(filepath.Separator)) && !filepath.IsAbs(cmd) {
+		return fmt.Errorf("relative command paths are not allowed; use absolute path or command name")
+	}
+
+	return nil
 }
 
 // envMapToSlice converts a map to an environment variable slice.

@@ -10,6 +10,8 @@ import (
 )
 
 // Bridge orchestrates the agentic loop between Ollama and MCP servers.
+// It maintains the conversation state and coordinates tool calls between the
+// language model and MCP-connected tools, with a safety limit of 20 iterations.
 type Bridge struct {
 	ollamaClient *ollama.Client
 	mcpClient    *mcp.MultiClient

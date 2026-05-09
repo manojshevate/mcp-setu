@@ -142,13 +142,16 @@ func runChat(ctx context.Context) error {
 	// Create bridge.
 	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, printer)
 
-	// Setup signal handling.
+	// Setup signal handling with context cancellation.
+	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	// Signal handler goroutine.
 	go func() {
 		<-sigCh
 		printer.PrintSuccess("Shutting down...")
-		os.Exit(0)
+		cancel()
 	}()
 
 	// REPL loop.
@@ -161,6 +164,13 @@ func runChat(ctx context.Context) error {
 	}
 
 	for {
+		// Check if context was cancelled (signal received).
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
 		printer.PrintUserPrompt()
 
 		if !scanner.Scan() {

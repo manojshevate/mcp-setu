@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Client is an HTTP client for the Ollama API.
@@ -16,11 +17,13 @@ type Client struct {
 	http    *http.Client
 }
 
-// NewClient creates a new Ollama client.
+// NewClient creates a new Ollama client with a 30-second timeout.
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		http:    &http.Client{},
+		http: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
