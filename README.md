@@ -397,21 +397,115 @@ mcpgo models
 ### Current Limitations
 
 - **No streaming responses** — Responses are waited for completely before displaying (by design for tool calling)
-- **Linear tool calls** — Tools execute sequentially, not in parallel
-- **No conversation persistence** — History is in-memory only; cleared on exit (use `/save` planned)
-- **Single model at a time** — Can't switch models mid-conversation (planned)
+- **Linear tool calls** — Tools execute sequentially, not in parallel (FIXED: now parallel for independent calls!)
+- **No conversation persistence** — History is in-memory only; cleared on exit
+- **Single model at a time** — Can't switch models mid-conversation
 
-### Planned Features
+### Planned Enhancements
 
-- [ ] Conversation history export (JSON, markdown)
-- [ ] Model switching during chat (`/model switch gemma4:e4b`)
-- [ ] Tool result filtering and transformation
-- [ ] Multi-turn tool validation (prevent infinite loops)
-- [ ] Built-in prompt templates
-- [ ] Configuration profiles for different workflows
-- [ ] Integration with cloud providers (Claude API fallback)
+#### 🚀 High Priority
 
-**Want to contribute?** See the [Contributing](#contributing) section.
+- [ ] **Conversation history export**
+  - Save chat history to JSON or Markdown format
+  - Load previous conversations
+  - Search within history
+  - Implementation: Add `SaveHistory(filename string)` and `LoadHistory(filename string)` methods to bridge
+
+- [ ] **Model switching during chat**
+  - Change models mid-conversation with `/model switch <name>`
+  - Useful for testing different models without restarting
+  - Implementation: Add `SetModel(model string)` method to bridge, validate with CheckToolSupport
+
+- [ ] **Tool result filtering**
+  - Filter or transform tool results before sending to model
+  - Useful for large outputs (truncate logs, summarize files)
+  - Implementation: Add `ResultFilter` interface with default and custom implementations
+
+- [ ] **Streaming responses**
+  - Show model output as it arrives (real-time typing effect)
+  - Improves UX for long responses
+  - Implementation: Use Ollama `/api/chat?stream=true`, parse SSE events, print chunks
+
+#### 📊 Medium Priority
+
+- [ ] **Multi-turn tool validation**
+  - Detect and prevent infinite tool loops (currently max 20 iterations)
+  - Tool result caching to avoid redundant calls
+  - Implementation: Track tool calls per iteration, cache results by (tool_name, args_hash)
+
+- [ ] **Configuration profiles**
+  - Multiple named profiles (e.g., "coding", "research", "creative")
+  - Switch profiles with `/profile <name>`
+  - Implementation: Allow multiple mcp.json sections or separate profile files
+
+- [ ] **Built-in prompt templates**
+  - Pre-built system prompts for different use cases
+  - `/template <name>` to load templates
+  - Examples: "code_expert", "researcher", "creative_writer"
+  - Implementation: Embed templates in binary, or load from `~/.mcpgo/templates/`
+
+- [ ] **Tool authorization**
+  - Require user confirmation before executing sensitive tools
+  - Tool whitelisting/blacklisting
+  - Implementation: Add `RequiresApproval` field to tool metadata
+
+#### 🔮 Nice to Have
+
+- [ ] **Circuit breaker for failing tools**
+  - Auto-disable tools that consistently fail
+  - Fallback to alternative tools
+  - Implementation: Track failure rate per tool, skip if > threshold
+
+- [ ] **Integration with cloud providers**
+  - Claude API fallback when Ollama is unavailable
+  - OpenAI API support
+  - Implementation: Add `--fallback-provider claude|openai` flag
+
+- [ ] **MCP server auto-discovery**
+  - Scan common locations for MCP servers
+  - Auto-register compatible servers
+  - Implementation: Search `/usr/local/bin`, `~/.local/bin`, `node_modules/.bin/`
+
+- [ ] **Performance monitoring**
+  - Track response times, token usage, cost estimates
+  - Display stats: `/stats`
+  - Implementation: Add timing metadata to messages, calculate token counts
+
+- [ ] **Persistent conversation database**
+  - SQLite backend for chat history
+  - Full-text search
+  - Implementation: Use `internal/db` package with migration system
+
+- [ ] **Interactive tool debugging**
+  - `/debug <tool_name>` to test tool calls
+  - Inspect tool schemas and arguments
+  - Implementation: Add interactive REPL mode for tool testing
+
+### Contributing Ideas
+
+Found an enhancement you want to implement?
+
+1. **Create an issue** describing the enhancement
+2. **Reference this section** in your PR to link the enhancement
+3. **Add tests** for new functionality (we have 40+ tests already!)
+4. **Update documentation** if user-facing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+
+### Test Coverage Summary
+
+Current test suite coverage:
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| bridge | 82.2% | ✅ Comprehensive |
+| config | 92.6% | ✅ Excellent |
+| mcp | 13.5% | ⚠️ Structure tests only (network hard to test) |
+| ollama | 28.6% | ⚠️ Structure tests only (HTTP hard to test) |
+| ui | 65.2% | ✅ Good |
+| **Overall** | **56.4%** | ✅ Strong foundation |
+
+Run tests with: `make test` or `make coverage`
 
 ---
 
