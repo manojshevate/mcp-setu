@@ -1,4 +1,4 @@
-.PHONY: help build run install clean lint test vet
+.PHONY: help build run install clean lint test vet coverage
 
 help:
 	@echo "mcpgo - MCP Bridge for Ollama"
@@ -10,9 +10,11 @@ help:
 	@echo "  make run-tools   - List all available tools"
 	@echo "  make run-models  - List available Ollama models"
 	@echo "  make run-validate - Validate config and test connectivity"
+	@echo "  make test        - Run all unit tests"
+	@echo "  make test-v      - Run tests with verbose output"
+	@echo "  make coverage    - Run tests with coverage report"
 	@echo "  make vet         - Run go vet checks"
 	@echo "  make lint        - Run golangci-lint (requires installation)"
-	@echo "  make test        - Run tests (when available)"
 	@echo "  make clean       - Remove built binaries"
 	@echo ""
 	@echo "Quick start:"
@@ -57,6 +59,14 @@ lint:
 test:
 	@echo "Running tests..."
 	@go test ./...
+
+test-v:
+	@echo "Running tests (verbose)..."
+	@go test ./... -v
+
+coverage:
+	@echo "Running tests with coverage..."
+	@go test ./internal/bridge -cover
 
 clean:
 	@echo "Cleaning..."

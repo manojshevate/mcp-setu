@@ -3,25 +3,43 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/manojshevate/mcpgo/internal/mcp"
 	"github.com/manojshevate/mcpgo/internal/ollama"
 	"github.com/manojshevate/mcpgo/internal/ui"
 )
 
+// OllamaClient defines the interface for Ollama API interactions.
+type OllamaClient interface {
+	Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error)
+	CheckToolSupport(ctx context.Context, model string) error
+	ListLocalModels(ctx context.Context) ([]ollama.ModelInfo, error)
+}
+
+// MCPClient defines the interface for MCP server interactions.
+type MCPClient interface {
+	GetAllTools() map[string]string
+	GetServer(name string) *mcp.Client
+	GetServerForTool(toolName string) *mcp.Client
+	CallTool(ctx context.Context, toolName string, arguments map[string]any) (string, error)
+	GetAllServerNames() []string
+	CloseAll() error
+}
+
 // Bridge orchestrates the agentic loop between Ollama and MCP servers.
 // It maintains the conversation state and coordinates tool calls between the
 // language model and MCP-connected tools, with a safety limit of 20 iterations.
 type Bridge struct {
-	ollamaClient *ollama.Client
-	mcpClient    *mcp.MultiClient
+	ollamaClient OllamaClient
+	mcpClient    MCPClient
 	model        string
 	temperature  float64
 	printer      *ui.Printer
 }
 
 // NewBridge creates a new Bridge.
-func NewBridge(ollamaClient *ollama.Client, mcpClient *mcp.MultiClient, model string, temperature float64, printer *ui.Printer) *Bridge {
+func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, printer *ui.Printer) *Bridge {
 	return &Bridge{
 		ollamaClient: ollamaClient,
 		mcpClient:    mcpClient,
@@ -58,18 +76,12 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			return resp.Content, nil
 		}
 
-		// Execute tool calls.
-		for _, call := range resp.ToolCalls {
-			b.printer.PrintToolCall(call.Name, call.Arguments)
+		// Execute tool calls in parallel for independent calls.
+		toolResults := b.executeToolsParallel(ctx, resp.ToolCalls)
 
-			result, err := b.mcpClient.CallTool(ctx, call.Name, call.Arguments)
-			if err != nil {
-				result = fmt.Sprintf("error: %v", err)
-				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", call.Name, err))
-			}
-
-			b.printer.PrintToolResult(call.Name, result, len(result) > 120)
-
+		// Add tool results to conversation history in order.
+		for i, call := range resp.ToolCalls {
+			result := toolResults[i]
 			// Add tool result as a message.
 			messages = append(messages, ollama.Message{
 				Role:    "user",
@@ -79,6 +91,40 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	}
 
 	return "", fmt.Errorf("agent loop exceeded %d iterations — possible infinite tool loop", maxIterations)
+}
+
+// executeToolsParallel executes multiple tool calls concurrently.
+// Results are returned in the same order as the input tool calls.
+func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCall) []string {
+	if len(calls) == 0 {
+		return []string{}
+	}
+
+	results := make([]string, len(calls))
+	var wg sync.WaitGroup
+
+	// Execute all tool calls concurrently.
+	for i, call := range calls {
+		wg.Add(1)
+		go func(index int, toolCall ollama.ToolCall) {
+			defer wg.Done()
+
+			b.printer.PrintToolCall(toolCall.Name, toolCall.Arguments)
+
+			result, err := b.mcpClient.CallTool(ctx, toolCall.Name, toolCall.Arguments)
+			if err != nil {
+				result = fmt.Sprintf("error: %v", err)
+				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", toolCall.Name, err))
+			}
+
+			b.printer.PrintToolResult(toolCall.Name, result, len(result) > 120)
+			results[index] = result
+		}(i, call)
+	}
+
+	// Wait for all goroutines to complete.
+	wg.Wait()
+	return results
 }
 
 // buildToolsList converts MCP tools to Ollama tool definitions.
