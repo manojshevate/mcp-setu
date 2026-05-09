@@ -8,26 +8,76 @@ mcpgo connects your local Ollama instance to MCP servers, enabling models like G
 
 ## Prerequisites
 
-- **Go 1.22+** — [Download](https://golang.org/dl/)
-- **Ollama** — [https://ollama.com](https://ollama.com) (run `ollama serve` before starting mcpgo)
-- **Node.js 18+** — For npx-based MCP servers
-- **A tool-calling capable model** — See [Supported Models](#supported-models) for examples
+- **Go 1.26+** — [Download](https://golang.org/dl/) — Latest version recommended for performance
+- **Ollama** — [https://ollama.com](https://ollama.com) — Run `ollama serve` before starting mcpgo
+- **Node.js 18+** — Required for npx-based MCP servers like the filesystem and SQLite tools
+- **A tool-calling capable model** — See [Supported Models](#supported-models) for recommendations
 
 ## Quick Start
 
+### 1. Install mcpgo
+
+**Option A: Build from source**
 ```bash
-# Clone and build
-git clone https://github.com/manojshevate/mcpgo && cd mcpgo
+git clone https://github.com/manojshevate/mcpgo
+cd mcpgo
 make install
+```
 
-# Pull a tool-supporting model
+**Option B: Build and run locally**
+```bash
+git clone https://github.com/manojshevate/mcpgo
+cd mcpgo
+make build
+./bin/mcpgo chat
+```
+
+### 2. Start Ollama
+
+```bash
+ollama serve
+```
+
+Run this in a separate terminal. It will listen on `http://localhost:11434`.
+
+### 3. Pull a model
+
+```bash
 ollama pull gemma4:e4b
+```
 
-# Run interactive chat
+See [Supported Models](#supported-models) for recommended models.
+
+### 4. Run mcpgo
+
+```bash
 mcpgo chat
 ```
 
-That's it! You'll see a banner with connected servers and tools, then a prompt to type. Type naturally, and the model will call tools as needed.
+You'll see a startup banner showing connected MCP servers and available tools. Start typing naturally, and the model will call tools as needed.
+
+**Example conversation:**
+```
+❯ what files are in this project?
+assistant: Let me check the directory structure...
+```
+
+---
+
+## Building with Make
+
+The project includes a comprehensive Makefile:
+
+```bash
+make build       # Compile binary to bin/mcpgo
+make install     # Install to $GOPATH/bin
+make run         # Run chat directly
+make run-verbose # Run with debug output
+make vet         # Run go vet checks
+make clean       # Remove build artifacts
+```
+
+All targets work with Go 1.26+ and handle dependencies automatically.
 
 ## Claude Desktop Config Compatibility
 
@@ -256,51 +306,114 @@ Each layer is independent and testable. No global state; all dependencies are pa
 
 ## Troubleshooting
 
-**"connection refused" or "Ollama is not running"**
+### Common Issues
+
+**"Connection refused" or "Ollama is not running"**
 
 ```bash
+# Terminal 1: Start Ollama
 ollama serve
+
+# Terminal 2: Run mcpgo
+mcpgo chat
 ```
 
-Then run mcpgo in another terminal.
-
-**"model X not found locally"**
+**"Model X not found locally"**
 
 ```bash
 ollama pull gemma4:e4b
 ```
 
-See [Supported Models](#supported-models) for recommended models.
+Run `mcpgo models` to see all locally available models.
 
-**"model X does not support tool calling"**
-
-Your model must support tool calling. Run:
+**"Model X does not support tool calling"**
 
 ```bash
+# Check which models support tool calling
 mcpgo models
+
+# Switch to a supported model
+mcpgo chat --model llama3.2:latest
+
+# Or update mcp.json
 ```
 
-Look for models with a ✓ in the "Tool Support" column. Then switch your model in `mcp.json` or use:
+See [Supported Models](#supported-models) section for the full list.
+
+**"Failed to start MCP server"**
 
 ```bash
-mcpgo chat --model gemma4:e4b
+# Run validation to diagnose the issue
+mcpgo validate
 ```
 
-**"failed to start MCP server"**
+Common causes:
+- Command not in PATH (e.g., `npx` not found) — install Node.js 18+
+- Invalid `command` or `args` in `mcp.json` — check syntax with `mcpgo validate`
+- Directory does not exist — check relative paths in `mcp.json`
+- Port already in use — less common with stdio transport but possible with network-based servers
 
-Run `mcpgo validate` for detailed diagnostics. Common issues:
+**"Connection timeout" or "Ollama taking too long"**
 
-- MCP command not found (e.g., `npx` not in PATH)
-- Invalid `command` or `args` in `mcp.json`
-- Required environment not available
+- Increase model context length: `"contextLength": 8192` in `mcp.json`
+- Use a smaller model: `gemma4:e4b` instead of `llama3.3:70b`
+- Ensure sufficient RAM: Recommended 8GB+ for most models
 
-**Enable verbose output**
+**Enable verbose debugging**
 
 ```bash
 mcpgo chat --verbose
 ```
 
-This prints all tool calls and results to stderr so you can see what the model is doing.
+This prints all tool calls and results to stderr, showing exactly what the model is doing.
+
+### Performance Tips
+
+1. **Use the right model size** — `gemma4:e4b` (4GB) vs `llama3.3:70b` (40GB) have very different performance
+2. **Run Ollama on GPU** — Much faster than CPU: set `GPU_LAYERS=100` or check Ollama docs
+3. **Monitor MCP servers** — Long-running tools can slow down the chat loop
+4. **Keep context shorter** — Reduce `contextLength` to speed up responses (default 4096)
+
+### Debug Mode
+
+For development or deep troubleshooting:
+
+```bash
+# See tool calls as they happen
+mcpgo chat --verbose
+
+# Validate everything before starting chat
+mcpgo validate
+
+# List all discovered tools
+mcpgo tools
+
+# List all local models
+mcpgo models
+```
+
+## Limitations & Future Work
+
+### Current Limitations
+
+- **No streaming responses** — Responses are waited for completely before displaying (by design for tool calling)
+- **Linear tool calls** — Tools execute sequentially, not in parallel
+- **No conversation persistence** — History is in-memory only; cleared on exit (use `/save` planned)
+- **Single model at a time** — Can't switch models mid-conversation (planned)
+
+### Planned Features
+
+- [ ] Conversation history export (JSON, markdown)
+- [ ] Model switching during chat (`/model switch gemma4:e4b`)
+- [ ] Tool result filtering and transformation
+- [ ] Multi-turn tool validation (prevent infinite loops)
+- [ ] Built-in prompt templates
+- [ ] Configuration profiles for different workflows
+- [ ] Integration with cloud providers (Claude API fallback)
+
+**Want to contribute?** See the [Contributing](#contributing) section.
+
+---
 
 ## Development
 
@@ -316,6 +429,7 @@ make build
 ```bash
 make vet        # Go vet checks
 make lint       # golangci-lint (if installed)
+make test       # Run tests (when available)
 ```
 
 ### Install development version
@@ -324,6 +438,27 @@ make lint       # golangci-lint (if installed)
 make install
 mcpgo chat
 ```
+
+### Project Structure
+
+```
+mcpgo/
+├── cmd/mcpgo/          # CLI entry point (main.go)
+├── internal/
+│   ├── bridge/         # Agentic loop orchestrator
+│   ├── config/         # Config loading and validation
+│   ├── mcp/            # MCP stdio client (JSON-RPC 2.0)
+│   ├── ollama/         # Ollama HTTP API client
+│   └── ui/             # Terminal output formatting
+├── Makefile            # Build targets
+├── go.mod              # Module definition
+├── go.sum              # Dependency checksums
+├── mcp.json            # Example configuration
+├── LICENSE             # MIT License
+└── README.md           # This file
+```
+
+Each package is self-contained with clear responsibilities and no circular dependencies.
 
 ## Contributing
 
@@ -349,8 +484,27 @@ golangci-lint run ./...
 
 ## License
 
-MIT — See LICENSE file for details.
+**MIT License** — This project is open source and free to use, modify, and distribute.
+
+See the [LICENSE](LICENSE) file for full details. You're free to:
+- ✅ Use for personal and commercial projects
+- ✅ Modify and distribute
+- ✅ Use with no attribution required (but appreciated!)
+
+The only requirement is including the license notice in derivative works.
 
 ---
 
-**Have questions?** Open an issue on [GitHub](https://github.com/manojshevate/mcpgo/issues).
+## Support
+
+- **Issues & Bugs**: Open an issue on [GitHub](https://github.com/manojshevate/mcpgo/issues)
+- **Questions**: Start a discussion or check existing issues
+- **Contributing**: See [Contributing](#contributing) section above
+
+---
+
+## Acknowledgments
+
+- Built with [Cobra](https://cobra.dev/) for CLI and [Charm](https://charm.sh/) for beautiful terminal UI
+- Compatible with [Claude Desktop](https://claude.ai/code) MCP configuration format
+- Inspired by tools like Ghostty and modern CLI applications

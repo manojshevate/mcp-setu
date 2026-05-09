@@ -1,6 +1,6 @@
 module github.com/manojshevate/mcpgo
 
-go 1.22
+go 1.26
 
 require (
 	github.com/charmbracelet/lipgloss v0.9.1
