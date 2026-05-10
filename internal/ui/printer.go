@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manojshevate/mcpgo/internal/mcp"
@@ -257,7 +258,8 @@ func (p *Printer) PrintHelp() {
 	}{
 		{"/tools", "List all available tools"},
 		{"/clear", "Clear conversation history"},
-		{"/model", "Show current model"},
+		{"/model [name]", "Show/switch model"},
+		{"/stats", "Show performance stats"},
 		{"/servers", "Show connected MCP servers"},
 		{"/help", "Show this help"},
 		{"exit / quit", "Quit mcpgo"},
@@ -268,6 +270,106 @@ func (p *Printer) PrintHelp() {
 	}
 
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└──────────────┴────────────────────────────────────┘"))
+}
+
+// StatsInfo holds performance metrics for display.
+type StatsInfo struct {
+	MessageCount    int
+	ToolCallCount   int
+	TotalDuration   time.Duration
+	IterationCount  int
+	LastResponseTime time.Duration
+	AverageLoopTime  time.Duration
+}
+
+// PrintStats prints performance statistics.
+func (p *Printer) PrintStats(stats StatsInfo) {
+	headerStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
+	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┌─────────────────────────────────┬──────────────────────┐"))
+	fmt.Fprintf(os.Stdout, "│ %s │ %s │\n",
+		headerStyle.Render("Metric                          "),
+		headerStyle.Render("Value              "))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────────────────┼──────────────────────┤"))
+
+	metricsData := []struct {
+		label string
+		value string
+	}{
+		{"Messages sent", fmt.Sprintf("%d", stats.MessageCount)},
+		{"Tool calls made", fmt.Sprintf("%d", stats.ToolCallCount)},
+		{"Total iterations", fmt.Sprintf("%d", stats.IterationCount)},
+		{"Last response time", formatDuration(stats.LastResponseTime)},
+		{"Average loop time", formatDuration(stats.AverageLoopTime)},
+		{"Total session time", formatDuration(stats.TotalDuration)},
+	}
+
+	for _, m := range metricsData {
+		fmt.Fprintf(os.Stdout, "│ %-31s │ %-20s │\n", m.label, m.value)
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────────────────┴──────────────────────┘"))
+}
+
+// PrintModelSuggestions prints available models for switching.
+func (p *Printer) PrintModelSuggestions(currentModel string, models []ModelInfo) {
+	if len(models) == 0 {
+		fmt.Fprintf(os.Stdout, "No models found locally\n\n")
+		return
+	}
+
+	headerStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	currentStyle := lipgloss.NewStyle().Foreground(colorSuccess)
+
+	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┌─────────────────────┬──────────┬──────────────────────┐"))
+	fmt.Fprintf(os.Stdout, "│ %s │ %s │ %s │\n",
+		headerStyle.Render("Model               "),
+		headerStyle.Render("Size     "),
+		headerStyle.Render("Tool Support        "))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────┼──────────┼──────────────────────┤"))
+
+	for _, m := range models {
+		toolSupport := "✗ no tool calling"
+		modelName := m.Name
+		if m.Name == currentModel {
+			modelName = currentStyle.Render(modelName + " (current)")
+		}
+		if m.ToolSupported {
+			toolSupport = lipgloss.NewStyle().Foreground(colorSuccess).Render("✓ supported")
+		} else {
+			toolSupport = lipgloss.NewStyle().Foreground(colorError).Render(toolSupport)
+		}
+		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │ %-20s │\n", modelName, m.Size, toolSupport)
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────┴──────────┴──────────────────────┘"))
+}
+
+// PrintExitSummary prints a summary on exit.
+func (p *Printer) PrintExitSummary(stats StatsInfo) {
+	if stats.MessageCount == 0 {
+		return
+	}
+
+	summaryStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	fmt.Fprintf(os.Stdout, "\n%s\n", summaryStyle.Render("Session Summary"))
+	fmt.Fprintf(os.Stdout, "  Messages: %d | Tools: %d | Iterations: %d | Duration: %s\n\n",
+		stats.MessageCount, stats.ToolCallCount, stats.IterationCount, formatDuration(stats.TotalDuration))
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%.0fμs", d.Seconds()*1e6)
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%.0fms", d.Seconds()*1000)
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%.1fm", d.Minutes())
 }
 
 // Helper functions.
