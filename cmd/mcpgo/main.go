@@ -25,6 +25,23 @@ var (
 	systemOverride string
 )
 
+// listModelInfos converts Ollama models to UI format.
+func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
+	models, err := client.ListLocalModels(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var infos []ui.ModelInfo
+	for _, m := range models {
+		infos = append(infos, ui.ModelInfo{
+			Name:          m.Name,
+			Size:          m.Size,
+			ToolSupported: m.ToolSupported,
+		})
+	}
+	return infos, nil
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "mcpgo",
@@ -250,16 +267,10 @@ func runChat(ctx context.Context) error {
 				if input == "/model" {
 					fmt.Fprintf(os.Stdout, "Current model: %s\n", model)
 					// Show available models for switching.
-					models, err := ollamaClient.ListLocalModels(ctx)
-					if err == nil {
-						var modelInfos []ui.ModelInfo
-						for _, m := range models {
-							modelInfos = append(modelInfos, ui.ModelInfo{
-								Name:          m.Name,
-								Size:          m.Size,
-								ToolSupported: m.ToolSupported,
-							})
-						}
+					modelInfos, err := listModelInfos(ctx, ollamaClient)
+					if err != nil {
+						printer.PrintWarning(fmt.Sprintf("Failed to list models: %v", err))
+					} else {
 						printer.PrintModelSuggestions(model, modelInfos)
 					}
 				} else {
@@ -267,8 +278,14 @@ func runChat(ctx context.Context) error {
 					parts := strings.Fields(input)
 					if len(parts) == 2 {
 						newModel := parts[1]
+
 						if err := br.SetModel(ctx, newModel); err != nil {
 							printer.PrintError(fmt.Sprintf("Failed to switch to model %q: %v", newModel, err))
+							// Show suggestions on error.
+							modelInfos, err := listModelInfos(ctx, ollamaClient)
+							if err == nil {
+								printer.PrintModelAutocompleteHints(newModel, modelInfos)
+							}
 						} else {
 							model = newModel
 							fmt.Fprintf(os.Stdout, "✓ Switched to model: %s\n\n", model)
@@ -328,8 +345,6 @@ func runChat(ctx context.Context) error {
 			printer.PrintAssistantResponse(response)
 		}
 	}
-
-	return nil
 }
 
 func runTools(ctx context.Context) error {
@@ -379,20 +394,10 @@ func runModels(ctx context.Context) error {
 	ollamaClient := ollama.NewClient(cfg.Ollama.BaseURL)
 
 	// List models.
-	models, err := ollamaClient.ListLocalModels(ctx)
+	modelInfos, err := listModelInfos(ctx, ollamaClient)
 	if err != nil {
 		printer.PrintError(fmt.Sprintf("Failed to list models: %v", err))
 		return err
-	}
-
-	// Convert to UI format.
-	var modelInfos []ui.ModelInfo
-	for _, m := range models {
-		modelInfos = append(modelInfos, ui.ModelInfo{
-			Name:          m.Name,
-			Size:          m.Size,
-			ToolSupported: m.ToolSupported,
-		})
 	}
 
 	printer.PrintModelsTable(modelInfos)
