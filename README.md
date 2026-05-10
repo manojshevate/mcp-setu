@@ -876,6 +876,63 @@ Run tests with: `make test` or `make coverage`
 
 ---
 
+## Documentation
+
+### Local Development
+
+The documentation is built with [VitePress](https://vitepress.dev/) and hosted on GitHub Pages.
+
+**First time setup:**
+
+```bash
+npm install
+```
+
+**Run docs locally:**
+
+```bash
+make docs-dev
+```
+
+Visit `http://localhost:5173` to see the docs.
+
+**Build for production:**
+
+```bash
+make docs-build
+```
+
+**Preview built docs:**
+
+```bash
+make docs-preview
+```
+
+**Generate CLI reference** (auto-run during build):
+
+```bash
+make docs:generate-cli
+```
+
+### Documentation Structure
+
+- `docs/index.md` — Home page
+- `docs/getting-started.md` — Quick start guide
+- `docs/installation.md` — Installation methods
+- `docs/configuration.md` — Config reference
+- `docs/examples.md` — Usage examples
+- `docs/troubleshooting.md` — Common issues
+- `docs/concepts.md` — How it works
+- `docs/development.md` — Contributing guide
+- `docs/cli/index.md` — CLI reference
+- `docs/.vitepress/config.ts` — VitePress configuration
+
+### Deployment
+
+Documentation is automatically deployed to GitHub Pages via GitHub Actions when you push to `main`. See `.github/workflows/deploy-docs.yml` for details.
+
+Live docs: https://manojshevate.github.io/mcp-setu/
+
 ## Development
 
 ### Build from source
