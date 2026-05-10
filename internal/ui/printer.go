@@ -33,21 +33,28 @@ var (
 
 // PrintBanner prints the startup banner with info table.
 func (p *Printer) PrintBanner(model, configPath string, serverCount, toolCount int) {
-	bannerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorPrimary).
-		Padding(0, 2).
-		Align(lipgloss.Left)
+	// Title banner
+	titleStyle := lipgloss.NewStyle().
+		Foreground(colorPrimary).
+		Bold(true).
+		MarginBottom(1)
 
-	banner := bannerStyle.Render("mcpgo  v0.1.0\nMCP Bridge for Ollama")
-
-	infoStyle := lipgloss.NewStyle().Padding(0, 2)
-	info := fmt.Sprintf(
-		"  Model      %s\n  Config     %s\n  Servers    %d connected\n  Tools      %d available",
+	// Status section with better visual hierarchy
+	statusStyle := lipgloss.NewStyle().Padding(0, 2)
+	status := fmt.Sprintf(
+		"Model       %s\nConfig      %s\nServers     %d connected\nTools       %d available",
 		model, configPath, serverCount, toolCount,
 	)
 
-	fmt.Fprintf(os.Stdout, "%s\n%s\n\n", banner, infoStyle.Render(info))
+	// Build visual banner with dynamic divider width
+	dividerStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	title := "mcpgo — MCP Bridge for Ollama"
+	dividerWidth := lipgloss.Width(title)
+	divider := strings.Repeat("━", dividerWidth)
+
+	fmt.Fprintf(os.Stdout, "%s\n", titleStyle.Render(title))
+	fmt.Fprintf(os.Stdout, "%s\n\n", dividerStyle.Render(divider))
+	fmt.Fprintf(os.Stdout, "%s\n\n", statusStyle.Render(status))
 }
 
 // ServerInfo holds info about a server.
@@ -312,7 +319,7 @@ func (p *Printer) PrintStats(stats StatsInfo) {
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────────────────┴──────────────────────┘"))
 }
 
-// PrintModelSuggestions prints available models for switching.
+// PrintModelSuggestions prints available models for switching with autocomplete hints.
 func (p *Printer) PrintModelSuggestions(currentModel string, models []ModelInfo) {
 	if len(models) == 0 {
 		fmt.Fprintf(os.Stdout, "No models found locally\n\n")
@@ -322,6 +329,7 @@ func (p *Printer) PrintModelSuggestions(currentModel string, models []ModelInfo)
 	headerStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	borderStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	currentStyle := lipgloss.NewStyle().Foreground(colorSuccess)
+	hintStyle := lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
 
 	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┌─────────────────────┬──────────┬──────────────────────┐"))
 	fmt.Fprintf(os.Stdout, "│ %s │ %s │ %s │\n",
@@ -344,7 +352,8 @@ func (p *Printer) PrintModelSuggestions(currentModel string, models []ModelInfo)
 		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │ %-20s │\n", modelName, m.Size, toolSupport)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────┴──────────┴──────────────────────┘"))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("└─────────────────────┴──────────┴──────────────────────┘"))
+	fmt.Fprintf(os.Stdout, "%s\n\n", hintStyle.Render("→ Use '/model <name>' to switch (e.g., /model gemma4:e4b)"))
 }
 
 // PrintExitSummary prints a summary on exit.
@@ -357,6 +366,44 @@ func (p *Printer) PrintExitSummary(stats StatsInfo) {
 	fmt.Fprintf(os.Stdout, "\n%s\n", summaryStyle.Render("Session Summary"))
 	fmt.Fprintf(os.Stdout, "  Messages: %d | Tools: %d | Iterations: %d | Duration: %s\n\n",
 		stats.MessageCount, stats.ToolCallCount, stats.IterationCount, formatDuration(stats.TotalDuration))
+}
+
+// PrintModelAutocompleteHints prints autocomplete hints for model switching.
+func (p *Printer) PrintModelAutocompleteHints(input string, models []ModelInfo) {
+	if input == "" {
+		return
+	}
+
+	var matches []ModelInfo
+	lowerInput := strings.ToLower(input)
+	for _, m := range models {
+		if strings.HasPrefix(strings.ToLower(m.Name), lowerInput) {
+			matches = append(matches, m)
+		}
+	}
+
+	if len(matches) == 0 {
+		return
+	}
+
+	// Show up to 3 matching models
+	hintStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	var buf strings.Builder
+	buf.WriteString("→ Did you mean: ")
+	for i, m := range matches {
+		if i >= 3 {
+			break
+		}
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(m.Name)
+	}
+	if len(matches) > 3 {
+		buf.WriteString(", ...")
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n", hintStyle.Render(buf.String()))
 }
 
 func formatDuration(d time.Duration) string {
