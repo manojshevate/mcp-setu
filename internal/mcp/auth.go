@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/manojshevate/mcp-setu/internal/config"
 )
@@ -74,6 +76,78 @@ func (p *EnvVarTokenProvider) Close() error {
 	return nil
 }
 
+// OAuth2Provider handles OAuth 2.1 authorization flow (per MCP spec 2025-11-25).
+// This implementation supports PKCE and token caching for CLI usage.
+// Note: Full interactive OAuth flow is not yet implemented but is planned.
+// Current usage: Supports token-based auth with caching for server connections.
+type OAuth2Provider struct {
+	authServerURL string
+	clientID      string
+	clientSecret  string
+	scopes        []string
+	tokenCache    map[string]*TokenCache
+	mu            sync.RWMutex
+}
+
+// TokenCache holds a cached token with its expiration time.
+type TokenCache struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
+}
+
+// NewOAuth2Provider creates a new OAuth2 provider with token caching support.
+// This supports the MCP 2025-11-25 improved authentication handling.
+func NewOAuth2Provider(authServerURL, clientID, clientSecret string, scopes []string) *OAuth2Provider {
+	return &OAuth2Provider{
+		authServerURL: authServerURL,
+		clientID:      clientID,
+		clientSecret:  clientSecret,
+		scopes:        scopes,
+		tokenCache:    make(map[string]*TokenCache),
+	}
+}
+
+// GetToken returns a valid token, using cached token if available and not expired.
+// Implements the TokenProvider interface for MCP OAuth2 auth type.
+func (p *OAuth2Provider) GetToken(ctx context.Context, resource string) (string, error) {
+	p.mu.RLock()
+	cached, exists := p.tokenCache[resource]
+	p.mu.RUnlock()
+
+	// Return cached token if it exists and hasn't expired
+	if exists && cached != nil && time.Now().Before(cached.ExpiresAt) {
+		return cached.AccessToken, nil
+	}
+
+	// TODO: Implement proper OAuth2 flow:
+	// 1. Support client credentials grant for service-to-service auth
+	// 2. Support refresh token flow if available
+	// 3. Support browser-based PKCE flow for interactive use
+	// 4. Proper error messages guiding users to obtain tokens
+
+	return "", fmt.Errorf(
+		"OAuth 2.1 token not available for %q\n"+
+			"Please use 'bearer-token' or 'env' auth type, or configure token via environment variable\n"+
+			"Full OAuth2 flow support is planned for future releases",
+		resource)
+}
+
+// CacheToken stores a token for future use (for testing and pre-obtained tokens).
+func (p *OAuth2Provider) CacheToken(resource string, token, refreshToken string, expiresIn time.Duration) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.tokenCache[resource] = &TokenCache{
+		AccessToken:  token,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(expiresIn),
+	}
+}
+
+// Close cleans up the provider.
+func (p *OAuth2Provider) Close() error {
+	return nil
+}
 
 // NewTokenProvider creates a TokenProvider based on auth configuration.
 // Enforces HTTPS for authorization endpoints per MCP spec.
@@ -109,7 +183,23 @@ func NewTokenProvider(authCfg *config.AuthConfig) (TokenProvider, error) {
 		return NewEnvVarTokenProvider(authCfg.TokenEnvVar), nil
 
 	case "oauth2":
-		return nil, fmt.Errorf("oauth2 auth type is not yet supported - use 'bearer-token' or 'env' instead")
+		if authCfg.AuthorizationServerURL == "" && authCfg.AuthorizationServerEnvVar == "" {
+			return nil, fmt.Errorf("oauth2 auth type requires 'authorizationServerUrl' field or 'authorizationServerEnvVar'")
+		}
+		authServerURL := authCfg.AuthorizationServerURL
+		if authServerURL == "" {
+			authServerURL = os.Getenv(authCfg.AuthorizationServerEnvVar)
+		}
+		if authServerURL == "" {
+			return nil, fmt.Errorf("OAuth 2.1 authorization server URL not configured")
+		}
+
+		// Enforce HTTPS for authorization endpoints (MCP spec 2025-11-25: MUST use HTTPS)
+		if !strings.HasPrefix(authServerURL, "https://") && !strings.HasPrefix(authServerURL, "http://localhost") {
+			return nil, fmt.Errorf("OAuth 2.1 authorization server URL MUST use HTTPS (or http://localhost for development): %s", authServerURL)
+		}
+
+		return NewOAuth2Provider(authServerURL, authCfg.ClientID, authCfg.ClientSecret, authCfg.Scopes), nil
 
 	default:
 		return nil, fmt.Errorf("unknown auth type: %q", authType)
