@@ -1,0 +1,225 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+          - os: windows
+            arch: amd64
+          - os: windows
+            arch: arm64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Get version from tag
+      id: tag_name
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+      run: |
+        VERSION=${{ steps.tag_name.outputs.VERSION }}
+        COMMIT=${{ github.sha }}
+        BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        OUTPUT_NAME="mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}"
+
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          OUTPUT_NAME="${OUTPUT_NAME}.exe"
+        fi
+
+        go build \
+          -ldflags="-X github.com/manojshevate/mcpgo/internal/version.Version=${VERSION} \
+                    -X github.com/manojshevate/mcpgo/internal/version.Commit=${COMMIT} \
+                    -X github.com/manojshevate/mcpgo/internal/version.BuildDate=${BUILD_DATE}" \
+          -o "${OUTPUT_NAME}" \
+          ./cmd/mcpgo
+
+    - name: Create tarball/zip
+      run: |
+        VERSION=${{ steps.tag_name.outputs.VERSION }}
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          mv "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.exe" "mcpgo.exe"
+          zip -j "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.zip" "mcpgo.exe"
+          rm "mcpgo.exe"
+        else
+          mv "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}" "mcpgo"
+          tar -czf "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz" "mcpgo"
+          rm "mcpgo"
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: releases-${{ matrix.os }}-${{ matrix.arch }}
+        path: mcpgo_*
+
+  create-release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Flatten artifacts
+      run: |
+        mkdir -p release-files
+        find artifacts -type f -name "mcpgo_*" -exec mv {} release-files/ \;
+
+    - name: Generate checksums
+      run: |
+        cd release-files
+        sha256sum mcpgo_* > checksums.txt
+        cat checksums.txt
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        IS_PRERELEASE=${{ contains(steps.version.outputs.VERSION, 'dev') || contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') }}
+        if [ "$IS_PRERELEASE" = "true" ]; then
+          gh release create "${VERSION}" \
+            --title "Release ${VERSION}" \
+            --prerelease
+        else
+          gh release create "${VERSION}" \
+            --title "Release ${VERSION}"
+        fi
+
+    - name: Upload release assets
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd release-files
+        for file in mcpgo_* checksums.txt; do
+          gh release upload ${{ steps.version.outputs.VERSION }} "$file"
+        done
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: '!contains(github.ref, ''dev'') && !contains(github.ref, ''alpha'') && !contains(github.ref, ''beta'')'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get version and artifacts
+      id: release_info
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Download checksums
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release download ${{ steps.release_info.outputs.VERSION }} -p "checksums.txt"
+        cat checksums.txt
+
+    - name: Generate SHA256 for macOS amd64
+      id: sha_amd64
+      run: |
+        SHA=$(grep "darwin_amd64.tar.gz" checksums.txt | awk '{print $1}')
+        echo "SHA=$SHA" >> $GITHUB_OUTPUT
+
+    - name: Generate SHA256 for macOS arm64
+      id: sha_arm64
+      run: |
+        SHA=$(grep "darwin_arm64.tar.gz" checksums.txt | awk '{print $1}')
+        echo "SHA=$SHA" >> $GITHUB_OUTPUT
+
+    - name: Checkout homebrew-tap
+      uses: actions/checkout@v4
+      with:
+        repository: manojshevate/homebrew-tap
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        path: homebrew-tap
+
+    - name: Update formula
+      run: |
+        VERSION=${{ steps.release_info.outputs.VERSION }}
+        VERSION_BARE=${VERSION#v}
+        SHA_AMD64=${{ steps.sha_amd64.outputs.SHA }}
+        SHA_ARM64=${{ steps.sha_arm64.outputs.SHA }}
+        mkdir -p homebrew-tap/Formula
+        {
+          echo "class Mcpgo < Formula"
+          echo "  desc \"MCP bridge for Ollama\""
+          echo "  homepage \"https://github.com/manojshevate/mcpgo\""
+          echo ""
+          echo "  on_macos do"
+          echo "    on_arm do"
+          echo "      url \"https://github.com/manojshevate/mcpgo/releases/download/${VERSION}/mcpgo_${VERSION}_darwin_arm64.tar.gz\""
+          echo "      sha256 \"${SHA_ARM64}\""
+          echo "    end"
+          echo "    on_intel do"
+          echo "      url \"https://github.com/manojshevate/mcpgo/releases/download/${VERSION}/mcpgo_${VERSION}_darwin_amd64.tar.gz\""
+          echo "      sha256 \"${SHA_AMD64}\""
+          echo "    end"
+          echo "  end"
+          echo ""
+          echo "  version \"${VERSION_BARE}\""
+          echo "  license \"MIT\""
+          echo ""
+          echo "  def install"
+          echo "    bin.install \"mcpgo\""
+          echo "  end"
+          echo ""
+          echo "  def test"
+          echo "    assert_match \"mcpgo version\", shell_output(\"#{bin}/mcpgo version\")"
+          echo "  end"
+          echo "end"
+        } > homebrew-tap/Formula/mcpgo.rb
+
+    - name: Commit and push to homebrew-tap
+      run: |
+        cd homebrew-tap
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add Formula/mcpgo.rb
+        git commit -m "chore: update mcpgo formula to ${{ steps.release_info.outputs.VERSION }}" || true
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

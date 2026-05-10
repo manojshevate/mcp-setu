@@ -1,0 +1,24 @@
+# Go
+/bin/
+/dist/
+/vendor/
+*.out
+coverage.txt
+coverage.html
+go.work
+.env
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# IntelliJ IDEA / GoLand
+.idea/
+*.iml
+out/
+
+# General
+*.db
+*.sqlite
+.DS_Store
