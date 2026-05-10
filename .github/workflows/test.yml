@@ -28,4 +28,4 @@ jobs:
       run: go vet ./...
 
     - name: Build
-      run: go build -o bin/mcpgo ./cmd/mcpgo
+      run: go build -o bin/mcp-setu ./cmd/mcp-setu

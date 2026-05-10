@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-05-10
 
 ### Added
-- Initial release of mcpgo
+- Initial release of mcp-setu
 - Interactive chat interface with Ollama models
 - Support for multiple MCP servers
 - Tool calling capability
@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration validation
 - Release infrastructure:
   - Version management via `internal/version/version.go`
-  - `mcpgo version` command showing version, commit, and build date
+  - `mcp-setu version` command showing version, commit, and build date
   - GitHub Actions workflows for testing and releases
   - Cross-platform binary builds (Linux, macOS, Windows)
   - Homebrew distribution support

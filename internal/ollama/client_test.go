@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/manojshevate/mcpgo/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/config"
 )
 
 // TestNewClient tests client initialization.

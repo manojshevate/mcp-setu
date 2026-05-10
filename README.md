@@ -1,15 +1,15 @@
-# mcpgo - MCP Bridge for Ollama
+# mcp-setu - MCP Bridge for Ollama
 
-**mcpgo** is a Go-native CLI application that bridges Ollama to MCP (Model Context Protocol) servers for interactive, multi-turn chat with local language models. It's Claude Desktop config-compatible, meaning you can reuse your existing MCP configuration without any changes. Fully open-source, no cloud dependency, runs entirely on your machine.
+**mcp-setu** is a Go-native CLI application that bridges Ollama to MCP (Model Context Protocol) servers for interactive, multi-turn chat with local language models. It's Claude Desktop config-compatible, meaning you can reuse your existing MCP configuration without any changes. Fully open-source, no cloud dependency, runs entirely on your machine.
 
-## What is mcpgo?
+## What is mcp-setu?
 
-mcpgo connects your local Ollama instance to MCP servers, enabling models like Gemma, Qwen, and Llama to call tools (like filesystem access, database queries, etc.) during interactive conversations. The CLI is inspired by modern tools like Ghostty and Claude Code, with clean terminal UI and helpful error messages. Your existing Claude Desktop `mcp.json` works immediately—just point mcpgo at it.
+mcp-setu connects your local Ollama instance to MCP servers, enabling models like Gemma, Qwen, and Llama to call tools (like filesystem access, database queries, etc.) during interactive conversations. The CLI is inspired by modern tools like Ghostty and Claude Code, with clean terminal UI and helpful error messages. Your existing Claude Desktop `mcp.json` works immediately—just point mcp-setu at it.
 
 ## Prerequisites
 
 - **Go 1.26+** — [Download](https://golang.org/dl/) — Latest version recommended for performance
-- **Ollama** — [https://ollama.com](https://ollama.com) — Run `ollama serve` before starting mcpgo
+- **Ollama** — [https://ollama.com](https://ollama.com) — Run `ollama serve` before starting mcp-setu
 - **Node.js 18+** — Required for npx-based MCP servers like the filesystem and SQLite tools
 - **A tool-calling capable model** — See [Supported Models](#supported-models) for recommendations
 
@@ -18,40 +18,40 @@ mcpgo connects your local Ollama instance to MCP servers, enabling models like G
 ### Using `go install` (Recommended)
 
 ```bash
-go install github.com/manojshevate/mcpgo/cmd/mcpgo@latest
+go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest
 ```
 
-This installs the latest released version directly to `$GOPATH/bin/mcpgo`.
+This installs the latest released version directly to `$GOPATH/bin/mcp-setu`.
 
 For a specific version:
 ```bash
-go install github.com/manojshevate/mcpgo/cmd/mcpgo@v0.1.0
+go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@v0.1.0
 ```
 
 ### Using Homebrew (macOS)
 
 ```bash
 brew tap manojshevate/tap
-brew install mcpgo
+brew install mcp-setu
 ```
 
 To upgrade:
 ```bash
-brew upgrade mcpgo
+brew upgrade mcp-setu
 ```
 
 ### Building from Source
 
 ```bash
-git clone https://github.com/manojshevate/mcpgo
-cd mcpgo
+git clone https://github.com/manojshevate/mcp-setu
+cd mcp-setu
 make install
 ```
 
 Or to build and run locally without installing:
 ```bash
 make build
-./bin/mcpgo chat
+./bin/mcp-setu chat
 ```
 
 ## Quick Start
@@ -61,7 +61,7 @@ make build
 After installing via any method above, verify the installation:
 
 ```bash
-mcpgo version
+mcp-setu version
 ```
 
 ### 2. Start Ollama
@@ -80,10 +80,10 @@ ollama pull gemma4:e4b
 
 See [Supported Models](#supported-models) for recommended models.
 
-### 4. Run mcpgo
+### 4. Run mcp-setu
 
 ```bash
-mcpgo chat
+mcp-setu chat
 ```
 
 You'll see a startup banner showing connected MCP servers and available tools. Start typing naturally, and the model will call tools as needed.
@@ -101,7 +101,7 @@ assistant: Let me check the directory structure...
 The project includes a comprehensive Makefile:
 
 ```bash
-make build       # Compile binary to bin/mcpgo
+make build       # Compile binary to bin/mcp-setu
 make install     # Install to $GOPATH/bin
 make run         # Run chat directly
 make run-verbose # Run with debug output
@@ -113,7 +113,7 @@ All targets work with Go 1.26+ and handle dependencies automatically.
 
 ## Claude Desktop Config Compatibility
 
-mcpgo uses the **exact same** `mcpServers` configuration format as Claude Desktop. Your existing Claude Desktop MCP setup works immediately without modification.
+mcp-setu uses the **exact same** `mcpServers` configuration format as Claude Desktop. Your existing Claude Desktop MCP setup works immediately without modification.
 
 **Where to find your Claude Desktop config:**
 
@@ -121,24 +121,24 @@ mcpgo uses the **exact same** `mcpServers` configuration format as Claude Deskto
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-**To use your Claude Desktop MCP setup with mcpgo:**
+**To use your Claude Desktop MCP setup with mcp-setu:**
 
 ```bash
 # macOS
-mcpgo --config ~/Library/Application\ Support/Claude/claude_desktop_config.json chat
+mcp-setu --config ~/Library/Application\ Support/Claude/claude_desktop_config.json chat
 
 # Windows (PowerShell)
-mcpgo --config $env:APPDATA\Claude\claude_desktop_config.json chat
+mcp-setu --config $env:APPDATA\Claude\claude_desktop_config.json chat
 
 # Linux
-mcpgo --config ~/.config/Claude/claude_desktop_config.json chat
+mcp-setu --config ~/.config/Claude/claude_desktop_config.json chat
 ```
 
-The only difference is the `ollama` block, which is mcpgo-specific and not present in Claude Desktop configs. mcpgo will use sensible defaults if the block is missing.
+The only difference is the `ollama` block, which is mcp-setu-specific and not present in Claude Desktop configs. mcp-setu will use sensible defaults if the block is missing.
 
 ## Configuration
 
-mcpgo reads its configuration from `mcp.json` by default. Use `--config <path>` to specify a different file.
+mcp-setu reads its configuration from `mcp.json` by default. Use `--config <path>` to specify a different file.
 
 **Current default configuration (`mcp.json`):**
 
@@ -211,7 +211,7 @@ You can customize `mcp.json` to add more servers. Common examples:
 | phi4            | phi4:14b         | Compact and capable                      |
 | deepseek-r1     | deepseek-r1:7b   | Strong reasoning + tool use              |
 
-> **mcpgo checks tool support at startup** and exits with a clear error if your model doesn't support tool calling. Run `mcpgo models` to see what's available locally and which models are compatible.
+> **mcp-setu checks tool support at startup** and exits with a clear error if your model doesn't support tool calling. Run `mcp-setu models` to see what's available locally and which models are compatible.
 
 ## CLI Reference
 
@@ -226,10 +226,10 @@ You can customize `mcp.json` to add more servers. Common examples:
 
 | Command            | Description                                           |
 |--------------------|-------------------------------------------------------|
-| `mcpgo chat`       | Start interactive chat session (default)              |
-| `mcpgo tools`      | List all tools from configured MCP servers and exit   |
-| `mcpgo models`     | List local Ollama models and tool support status      |
-| `mcpgo validate`   | Validate config and test MCP server connectivity      |
+| `mcp-setu chat`       | Start interactive chat session (default)              |
+| `mcp-setu tools`      | List all tools from configured MCP servers and exit   |
+| `mcp-setu models`     | List local Ollama models and tool support status      |
+| `mcp-setu validate`   | Validate config and test MCP server connectivity      |
 
 ### Chat flags
 
@@ -241,7 +241,7 @@ You can customize `mcp.json` to add more servers. Common examples:
 **Example:**
 
 ```bash
-mcpgo chat --verbose --model gemma4:e4b --system "You are a Python expert."
+mcp-setu chat --verbose --model gemma4:e4b --system "You are a Python expert."
 ```
 
 ## REPL Commands
@@ -257,7 +257,7 @@ Once in the interactive chat loop, these commands are available:
 | `/stats`          | Show performance statistics               |
 | `/servers`        | Show connected MCP servers                |
 | `/help`           | Show this help                            |
-| `exit`/`quit`     | Quit mcpgo                                |
+| `exit`/`quit`     | Quit mcp-setu                                |
 
 ## Example Session
 
@@ -265,7 +265,7 @@ Here's a realistic multi-turn session using `gemma4:e4b` with the memory MCP ser
 
 ```
 ╭─────────────────────────────╮
-│  mcpgo  v0.1.0              │
+│  mcp-setu  v0.1.0              │
 │  MCP Bridge for Ollama      │
 ╰─────────────────────────────╯
   Model      gemma4:e4b
@@ -323,7 +323,7 @@ User input
     │
     ▼
 ┌─────────┐    JSON-RPC stdio    ┌─────────────┐
-│  mcpgo  │ ◄──────────────────► │  MCP Server │
+│  mcp-setu  │ ◄──────────────────► │  MCP Server │
 │ (bridge)│                      │ (filesystem,│
 │         │    /api/chat HTTP     │  sqlite...) │
 │         │ ◄──────────────────► └─────────────┘
@@ -353,8 +353,8 @@ Each layer is independent and testable. No global state; all dependencies are pa
 # Terminal 1: Start Ollama
 ollama serve
 
-# Terminal 2: Run mcpgo
-mcpgo chat
+# Terminal 2: Run mcp-setu
+mcp-setu chat
 ```
 
 **"Model X not found locally"**
@@ -363,16 +363,16 @@ mcpgo chat
 ollama pull gemma4:e4b
 ```
 
-Run `mcpgo models` to see all locally available models.
+Run `mcp-setu models` to see all locally available models.
 
 **"Model X does not support tool calling"**
 
 ```bash
 # Check which models support tool calling
-mcpgo models
+mcp-setu models
 
 # Switch to a supported model
-mcpgo chat --model llama3.2:latest
+mcp-setu chat --model llama3.2:latest
 
 # Or update mcp.json
 ```
@@ -383,12 +383,12 @@ See [Supported Models](#supported-models) section for the full list.
 
 ```bash
 # Run validation to diagnose the issue
-mcpgo validate
+mcp-setu validate
 ```
 
 Common causes:
 - Command not in PATH (e.g., `npx` not found) — install Node.js 18+
-- Invalid `command` or `args` in `mcp.json` — check syntax with `mcpgo validate`
+- Invalid `command` or `args` in `mcp.json` — check syntax with `mcp-setu validate`
 - Directory does not exist — check relative paths in `mcp.json`
 - Port already in use — less common with stdio transport but possible with network-based servers
 
@@ -401,7 +401,7 @@ Common causes:
 **Enable verbose debugging**
 
 ```bash
-mcpgo chat --verbose
+mcp-setu chat --verbose
 ```
 
 This prints all tool calls and results to stderr, showing exactly what the model is doing.
@@ -419,16 +419,16 @@ For development or deep troubleshooting:
 
 ```bash
 # See tool calls as they happen
-mcpgo chat --verbose
+mcp-setu chat --verbose
 
 # Validate everything before starting chat
-mcpgo validate
+mcp-setu validate
 
 # List all discovered tools
-mcpgo tools
+mcp-setu tools
 
 # List all local models
-mcpgo models
+mcp-setu models
 ```
 
 ## Limitations & Future Work
@@ -488,7 +488,7 @@ mcpgo models
   - Pre-built system prompts for different use cases
   - `/template <name>` to load templates
   - Examples: "code_expert", "researcher", "creative_writer"
-  - Implementation: Embed templates in binary, or load from `~/.mcpgo/templates/`
+  - Implementation: Embed templates in binary, or load from `~/.mcp-setu/templates/`
 
 - [ ] **Tool authorization**
   - Require user confirmation before executing sensitive tools
@@ -561,7 +561,7 @@ Run tests with: `make test` or `make coverage`
 
 ```bash
 make build
-./bin/mcpgo chat
+./bin/mcp-setu chat
 ```
 
 ### Check code quality
@@ -576,14 +576,14 @@ make test       # Run tests (when available)
 
 ```bash
 make install
-mcpgo chat
+mcp-setu chat
 ```
 
 ### Project Structure
 
 ```
-mcpgo/
-├── cmd/mcpgo/          # CLI entry point (main.go)
+mcp-setu/
+├── cmd/mcp-setu/          # CLI entry point (main.go)
 ├── internal/
 │   ├── bridge/         # Agentic loop orchestrator
 │   ├── config/         # Config loading and validation
@@ -611,7 +611,7 @@ Each package is self-contained with clear responsibilities and no circular depen
 Before submitting:
 
 ```bash
-mcpgo validate    # Ensure config is valid
+mcp-setu validate    # Ensure config is valid
 go vet ./...      # Run code checks
 go test ./...     # Run tests (when available)
 ```
@@ -637,7 +637,7 @@ The only requirement is including the license notice in derivative works.
 
 ## Support
 
-- **Issues & Bugs**: Open an issue on [GitHub](https://github.com/manojshevate/mcpgo/issues)
+- **Issues & Bugs**: Open an issue on [GitHub](https://github.com/manojshevate/mcp-setu/issues)
 - **Questions**: Start a discussion or check existing issues
 - **Contributing**: See [Contributing](#contributing) section above
 

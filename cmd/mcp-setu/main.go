@@ -11,12 +11,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/manojshevate/mcpgo/internal/bridge"
-	"github.com/manojshevate/mcpgo/internal/config"
-	"github.com/manojshevate/mcpgo/internal/mcp"
-	"github.com/manojshevate/mcpgo/internal/ollama"
-	"github.com/manojshevate/mcpgo/internal/ui"
-	"github.com/manojshevate/mcpgo/internal/version"
+	"github.com/manojshevate/mcp-setu/internal/bridge"
+	"github.com/manojshevate/mcp-setu/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/mcp"
+	"github.com/manojshevate/mcp-setu/internal/ollama"
+	"github.com/manojshevate/mcp-setu/internal/ui"
+	"github.com/manojshevate/mcp-setu/internal/version"
 )
 
 var (
@@ -45,9 +45,9 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "mcpgo",
+		Use:   "mcp-setu",
 		Short: "MCP bridge for Ollama",
-		Long:  "mcpgo bridges Ollama to MCP servers for interactive multi-turn chat",
+		Long:  "mcp-setu bridges Ollama to MCP servers for interactive multi-turn chat",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
 		},
@@ -61,7 +61,7 @@ func main() {
 		Use:   "version",
 		Short: "Show version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("mcpgo version %s\n", version.Version)
+			fmt.Printf("mcp-setu version %s\n", version.Version)
 			if version.Commit != "unknown" {
 				fmt.Printf("commit: %s\n", version.Commit)
 			}

@@ -1,4 +1,4 @@
-module github.com/manojshevate/mcpgo
+module github.com/manojshevate/mcp-setu
 
 go 1.26
 

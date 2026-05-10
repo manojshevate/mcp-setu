@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/manojshevate/mcpgo/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/config"
 )
 
 // Client manages a connection to a single MCP server via stdio.
@@ -83,7 +83,7 @@ func (c *Client) initialize(ctx context.Context) error {
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
-			Name:    "mcpgo",
+			Name:    "mcp-setu",
 			Version: "0.1.0",
 		},
 	}
