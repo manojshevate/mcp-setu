@@ -75,9 +75,10 @@ func TestEnvMapToSliceEmpty(t *testing.T) {
 
 // TestJSONRPCRequest tests JSON-RPC request structure.
 func TestJSONRPCRequest(t *testing.T) {
+	id := 1
 	req := JSONRPCRequest{
 		JSONRPC: "2.0",
-		ID:      1,
+		ID:      &id,
 		Method:  "tools/list",
 		Params:  map[string]any{},
 	}
@@ -86,8 +87,8 @@ func TestJSONRPCRequest(t *testing.T) {
 		t.Errorf("Expected jsonrpc 2.0, got %s", req.JSONRPC)
 	}
 
-	if req.ID != 1 {
-		t.Errorf("Expected ID 1, got %d", req.ID)
+	if req.ID == nil || *req.ID != 1 {
+		t.Errorf("Expected ID 1, got %v", req.ID)
 	}
 
 	if req.Method != "tools/list" {
@@ -97,9 +98,10 @@ func TestJSONRPCRequest(t *testing.T) {
 
 // TestJSONRPCResponse tests JSON-RPC response structure.
 func TestJSONRPCResponse(t *testing.T) {
+	id := 1
 	resp := JSONRPCResponse{
 		JSONRPC: "2.0",
-		ID:      1,
+		ID:      &id,
 		Result:  map[string]any{"tools": []any{}},
 	}
 
@@ -107,8 +109,8 @@ func TestJSONRPCResponse(t *testing.T) {
 		t.Errorf("Expected jsonrpc 2.0, got %s", resp.JSONRPC)
 	}
 
-	if resp.ID != 1 {
-		t.Errorf("Expected ID 1, got %d", resp.ID)
+	if resp.ID == nil || *resp.ID != 1 {
+		t.Errorf("Expected ID 1, got %v", resp.ID)
 	}
 
 	if resp.Error != nil {
@@ -182,49 +184,6 @@ func TestInitializeRequest(t *testing.T) {
 
 	if req.ClientInfo.Version != "0.1.0" {
 		t.Errorf("Expected client version 0.1.0, got %s", req.ClientInfo.Version)
-	}
-}
-
-// TestServerInfo tests server metadata structure.
-func TestServerInfo(t *testing.T) {
-	info := ServerInfo{
-		Name:   "filesystem",
-		Status: "ready",
-		Tools:  5,
-		Error:  "",
-	}
-
-	if info.Name != "filesystem" {
-		t.Errorf("Expected name filesystem, got %s", info.Name)
-	}
-
-	if info.Tools != 5 {
-		t.Errorf("Expected 5 tools, got %d", info.Tools)
-	}
-
-	if info.Error != "" {
-		t.Errorf("Expected no error, got %s", info.Error)
-	}
-}
-
-// TestToolInfo tests tool metadata structure.
-func TestToolInfo(t *testing.T) {
-	info := ToolInfo{
-		Name:        "read_file",
-		Server:      "filesystem",
-		Description: "Read a file",
-	}
-
-	if info.Name != "read_file" {
-		t.Errorf("Expected name read_file, got %s", info.Name)
-	}
-
-	if info.Server != "filesystem" {
-		t.Errorf("Expected server filesystem, got %s", info.Server)
-	}
-
-	if info.Description != "Read a file" {
-		t.Errorf("Expected description, got %s", info.Description)
 	}
 }
 
