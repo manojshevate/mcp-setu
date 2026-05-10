@@ -51,13 +51,6 @@ type Bridge struct {
 	startTime    time.Time
 }
 
-// MessageMetrics holds metrics for a single message processing.
-type MessageMetrics struct {
-	Duration      time.Duration
-	Iterations    int
-	ToolCalls     int
-}
-
 // NewBridge creates a new Bridge.
 func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, printer *ui.Printer) *Bridge {
 	return &Bridge{
