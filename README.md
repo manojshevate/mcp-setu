@@ -8,7 +8,7 @@ mcpgo connects your local Ollama instance to MCP servers, enabling models like G
 
 ## Prerequisites
 
-- **Go 1.26+** — [Download](https://golang.org/dl/) — Latest version recommended for performance
+- **Go 1.25+** — [Download](https://golang.org/dl/) — Latest version recommended for performance
 - **Ollama** — [https://ollama.com](https://ollama.com) — Run `ollama serve` before starting mcpgo
 - **Node.js 18+** — Required for npx-based MCP servers like the filesystem and SQLite tools
 - **A tool-calling capable model** — See [Supported Models](#supported-models) for recommendations
@@ -66,15 +66,13 @@ mcpgo version
 
 ### 2. Start Ollama
 
-### 3. Start Ollama
-
 ```bash
 ollama serve
 ```
 
 Run this in a separate terminal. It will listen on `http://localhost:11434`.
 
-### 4. Pull a model
+### 3. Pull a model
 
 ```bash
 ollama pull gemma4:e4b
@@ -82,7 +80,7 @@ ollama pull gemma4:e4b
 
 See [Supported Models](#supported-models) for recommended models.
 
-### 5. Run mcpgo
+### 4. Run mcpgo
 
 ```bash
 mcpgo chat
@@ -111,7 +109,7 @@ make vet         # Run go vet checks
 make clean       # Remove build artifacts
 ```
 
-All targets work with Go 1.26+ and handle dependencies automatically.
+All targets work with Go 1.25+ and handle dependencies automatically.
 
 ## Claude Desktop Config Compatibility
 
