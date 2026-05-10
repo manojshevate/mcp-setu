@@ -78,12 +78,12 @@ func (m *MockMCPClient) GetAllTools() map[string]string {
 }
 
 // GetServer returns nil for mock.
-func (m *MockMCPClient) GetServer(name string) *mcp.Client {
+func (m *MockMCPClient) GetServer(name string) mcp.MCPClientInterface {
 	return nil
 }
 
 // GetServerForTool returns nil for mock.
-func (m *MockMCPClient) GetServerForTool(toolName string) *mcp.Client {
+func (m *MockMCPClient) GetServerForTool(toolName string) mcp.MCPClientInterface {
 	return nil
 }
 

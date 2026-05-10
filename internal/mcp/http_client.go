@@ -218,7 +218,7 @@ func (c *HTTPStreamableClient) sendRequest(ctx context.Context, method string, p
 				if requiredScopes != "" {
 					errMsg += fmt.Sprintf("\nRequired scopes: %s", requiredScopes)
 				}
-				return nil, fmt.Errorf(errMsg)
+				return nil, fmt.Errorf("%s", errMsg)
 			}
 		}
 		return nil, fmt.Errorf("HTTP 401: Unauthorized - authentication required")
@@ -467,7 +467,7 @@ func (c *HTTPSSEClient) sendRequest(ctx context.Context, method string, params a
 				if requiredScopes != "" {
 					errMsg += fmt.Sprintf("\nRequired scopes: %s", requiredScopes)
 				}
-				return nil, fmt.Errorf(errMsg)
+				return nil, fmt.Errorf("%s", errMsg)
 			}
 		}
 		return nil, fmt.Errorf("HTTP 401: Unauthorized - authentication required")
