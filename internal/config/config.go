@@ -118,7 +118,7 @@ func ExampleConfig() string {
 	example := Config{
 		Ollama: OllamaConfig{
 			BaseURL:      "http://localhost:11434",
-			Model:        "qwen2.5:7b",
+			Model:        "gemma4:e4b",
 			SystemPrompt: "You are a helpful assistant.",
 			Temperature:  0.7,
 			ContextLength: 4096,

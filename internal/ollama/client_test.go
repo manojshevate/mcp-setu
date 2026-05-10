@@ -40,6 +40,8 @@ func TestSupportsToolCalling(t *testing.T) {
 		model    string
 		expected bool
 	}{
+		{"gemma4:e4b", true},
+		{"gemma4:latest", true},
 		{"gemma3:2b", true},
 		{"gemma2:2b", true},
 		{"qwen2.5:7b", true},
@@ -92,6 +94,7 @@ func TestKnownToolSupportedModels(t *testing.T) {
 	}
 
 	expectedModels := map[string]bool{
+		"gemma4":       true,
 		"gemma3":       true,
 		"qwen2.5":      true,
 		"llama3.2":     true,
@@ -129,15 +132,15 @@ func TestChatRequestStructure(t *testing.T) {
 	}
 
 	req := ChatRequest{
-		Model:       "qwen2.5:7b",
+		Model:       "gemma4:e4b",
 		Messages:    messages,
 		Tools:       tools,
 		Temperature: 0.7,
 		Stream:      false,
 	}
 
-	if req.Model != "qwen2.5:7b" {
-		t.Errorf("Expected model qwen2.5:7b, got %s", req.Model)
+	if req.Model != "gemma4:e4b" {
+		t.Errorf("Expected model gemma4:e4b, got %s", req.Model)
 	}
 
 	if len(req.Messages) != 1 {
@@ -211,7 +214,7 @@ func TestCheckToolSupportContextTimeout(t *testing.T) {
 	defer cancel()
 
 	// This will timeout since localhost:11434 is not available
-	err := client.CheckToolSupport(ctx, "qwen2.5:7b")
+	err := client.CheckToolSupport(ctx, "gemma4:e4b")
 	if err == nil {
 		t.Fatal("Expected error due to timeout or connection failure")
 	}
@@ -221,7 +224,7 @@ func TestCheckToolSupportContextTimeout(t *testing.T) {
 func TestListLocalModelsStructure(t *testing.T) {
 	models := []ModelDetail{
 		{
-			Name:       "qwen2.5:7b",
+			Name:       "gemma4:e4b",
 			ModifiedAt: "2024-05-09T20:00:00Z",
 			Size:       4294967296,
 		},
@@ -236,8 +239,8 @@ func TestListLocalModelsStructure(t *testing.T) {
 		t.Errorf("Expected 2 models, got %d", len(models))
 	}
 
-	if models[0].Name != "qwen2.5:7b" {
-		t.Errorf("Expected first model qwen2.5:7b, got %s", models[0].Name)
+	if models[0].Name != "gemma4:e4b" {
+		t.Errorf("Expected first model gemma4:e4b, got %s", models[0].Name)
 	}
 
 	if models[0].Size != 4294967296 {

@@ -2,9 +2,9 @@ package ollama
 
 // KnownToolSupportedModels is the list of Ollama model prefixes known to
 // support tool calling. Update this list as new models gain support.
-// Prefix matching is used so "gemma3:2b" matches "gemma3".
+// Prefix matching is used so "gemma4:e4b" matches "gemma4".
 var KnownToolSupportedModels = []string{
-	"gemma3", "gemma2",
+	"gemma4", "gemma3", "gemma2",
 	"qwen2.5", "qwen3",
 	"llama3.1", "llama3.2", "llama3.3",
 	"mistral-nemo",
