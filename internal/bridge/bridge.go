@@ -61,6 +61,9 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	for iteration < maxIterations {
 		iteration++
 
+		// Log that LLM is processing (verbose mode).
+		b.printer.PrintLLMProcessing(iteration)
+
 		// Call Ollama with tools.
 		resp, err := b.ollamaClient.Chat(ctx, b.model, messages, tools, b.temperature)
 		if err != nil {
@@ -75,17 +78,19 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			// No tool calls, return the response content.
 			return resp.Content, nil
 		}
-
+	
 		// Execute tool calls in parallel for independent calls.
 		toolResults := b.executeToolsParallel(ctx, resp.ToolCalls)
 
 		// Add tool results to conversation history in order.
 		for i, call := range resp.ToolCalls {
 			result := toolResults[i]
+			// Extract tool name and arguments (handles both old and new formats)
+			toolName, _ := call.NormalizeToolCall()
 			// Add tool result as a message.
 			messages = append(messages, ollama.Message{
 				Role:    "user",
-				Content: fmt.Sprintf("Tool %q result: %s", call.Name, result),
+				Content: fmt.Sprintf("Tool %q result: %s", toolName, result),
 			})
 		}
 	}
@@ -109,15 +114,18 @@ func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCa
 		go func(index int, toolCall ollama.ToolCall) {
 			defer wg.Done()
 
-			b.printer.PrintToolCall(toolCall.Name, toolCall.Arguments)
+			// Extract tool name and arguments (handles both old and new formats)
+			toolName, toolArgs := toolCall.NormalizeToolCall()
 
-			result, err := b.mcpClient.CallTool(ctx, toolCall.Name, toolCall.Arguments)
+			b.printer.PrintToolCall(toolName, toolArgs)
+
+			result, err := b.mcpClient.CallTool(ctx, toolName, toolArgs)
 			if err != nil {
 				result = fmt.Sprintf("error: %v", err)
-				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", toolCall.Name, err))
+				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", toolName, err))
 			}
 
-			b.printer.PrintToolResult(toolCall.Name, result, len(result) > 120)
+			b.printer.PrintToolResult(toolName, result, len(result) > 120)
 			results[index] = result
 		}(i, call)
 	}

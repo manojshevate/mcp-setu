@@ -163,81 +163,92 @@ func runChat(ctx context.Context) error {
 		},
 	}
 
+	// Channel to receive input from scanner goroutine.
+	inputCh := make(chan string)
+	scanDoneCh := make(chan struct{})
+
+	// Goroutine to read from scanner non-blockingly.
+	go func() {
+		defer close(scanDoneCh)
+		for scanner.Scan() {
+			inputCh <- scanner.Text()
+		}
+	}()
+
 	for {
-		// Check if context was cancelled (signal received).
+		printer.PrintUserPrompt()
+
+		// Check if context was cancelled (signal received) or input received.
 		select {
 		case <-ctx.Done():
 			return nil
-		default:
-		}
-
-		printer.PrintUserPrompt()
-
-		if !scanner.Scan() {
-			break
-		}
-
-		input := strings.TrimSpace(scanner.Text())
-		if input == "" {
-			continue
-		}
-
-		// Handle special commands.
-		switch input {
-		case "exit", "quit":
-			printer.PrintSuccess("Goodbye!")
-			return nil
-
-		case "/tools":
-			tools := ui.GetToolsTableFromMCP(mcpClient)
-			printer.PrintToolsTable(tools)
-			continue
-
-		case "/clear":
-			history = []ollama.Message{
-				{
-					Role:    "system",
-					Content: systemPrompt,
-				},
+		case input, ok := <-inputCh:
+			if !ok {
+				// Input goroutine closed (EOF or error).
+				return nil
 			}
-			printer.PrintSuccess("Conversation cleared.")
-			continue
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
 
-		case "/model":
-			fmt.Fprintf(os.Stdout, "Current model: %s\n\n", model)
-			continue
+			// Handle special commands.
+			switch input {
+			case "exit", "quit":
+				printer.PrintSuccess("Goodbye!")
+				return nil
 
-		case "/servers":
-			serverInfos := ui.GetServersTableInfo(mcpClient)
-			printer.PrintServerTable(serverInfos)
-			continue
+			case "/tools":
+				tools := ui.GetToolsTableFromMCP(mcpClient)
+				printer.PrintToolsTable(tools)
+				continue
 
-		case "/help":
-			printer.PrintHelp()
-			continue
+			case "/clear":
+				history = []ollama.Message{
+					{
+						Role:    "system",
+						Content: systemPrompt,
+					},
+				}
+				printer.PrintSuccess("Conversation cleared.")
+				continue
+
+			case "/model":
+				fmt.Fprintf(os.Stdout, "Current model: %s\n\n", model)
+				continue
+
+			case "/servers":
+				serverInfos := ui.GetServersTableInfo(mcpClient)
+				printer.PrintServerTable(serverInfos)
+				continue
+
+			case "/help":
+				printer.PrintHelp()
+				continue
+			}
+
+			// Add user message to history.
+			history = append(history, ollama.Message{
+				Role:    "user",
+				Content: input,
+			})
+
+			// Run bridge.
+			response, err := br.ProcessMessage(ctx, history)
+			if err != nil {
+				printer.PrintError(err.Error())
+				continue
+			}
+
+			// Add response to history.
+			history = append(history, ollama.Message{
+				Role:    "assistant",
+				Content: response,
+			})
+
+			// Print response.
+			printer.PrintAssistantResponse(response)
 		}
-
-		// Add user message to history.
-		history = append(history, ollama.Message{
-			Role:    "user",
-			Content: input,
-		})
-
-		// Run bridge.
-		response, err := br.ProcessMessage(ctx, history)
-		if err != nil {
-			printer.PrintError(err.Error())
-			continue
-		}
-
-		// Add response to history.
-		history = append(history, ollama.Message{
-			Role:    "assistant",
-			Content: response,
-		})
-
-		// Print response.
-		printer.PrintAssistantResponse(response)
 	}
 
 	return nil

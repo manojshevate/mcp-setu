@@ -108,7 +108,7 @@ The only difference is the `ollama` block, which is mcpgo-specific and not prese
 
 mcpgo reads its configuration from `mcp.json` by default. Use `--config <path>` to specify a different file.
 
-**Full annotated example (`mcp.json`):**
+**Current default configuration (`mcp.json`):**
 
 ```json
 {
@@ -120,6 +120,21 @@ mcpgo reads its configuration from `mcp.json` by default. Use `--config <path>` 
     "contextLength": 4096
   },
   "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
+```
+
+**Other server examples:**
+
+You can customize `mcp.json` to add more servers. Common examples:
+
+```json
+{
+  "mcpServers": {
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
@@ -129,6 +144,10 @@ mcpgo reads its configuration from `mcp.json` by default. Use `--config <path>` 
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sqlite", "./dev.db"],
       "env": {}
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
     }
   }
 }
@@ -208,7 +227,7 @@ Once in the interactive chat loop, these commands are available:
 
 ## Example Session
 
-Here's a realistic multi-turn session using `gemma4:e4b` with the filesystem MCP server:
+Here's a realistic multi-turn session using `gemma4:e4b` with the memory MCP server:
 
 ```
 ╭─────────────────────────────╮
@@ -218,56 +237,42 @@ Here's a realistic multi-turn session using `gemma4:e4b` with the filesystem MCP
   Model      gemma4:e4b
   Config     mcp.json
   Servers    1 connected
-  Tools      5 available
+  Tools      2 available
 
 ┌────────────────┬─────────┬───────────┐
 │ Server         │ Status  │ Tools     │
 ├────────────────┼─────────┼───────────┤
-│ filesystem     │ ✓ ready │ 5 tools   │
+│ memory         │ ✓ ready │ 2 tools   │
 └────────────────┴─────────┴───────────┘
 
-❯ what files are in this project?
+❯ remember my project is a Go CLI tool for bridging Ollama to MCP servers
 
+⚙  mcp › set_context  {"key": "project", "value": "Go CLI tool for Ollama-MCP bridge"}
+↳  set_context  Context stored successfully
 ┃
-assistant: Let me check the directory structure for you.
-
-The project contains several key files and directories:
-
-- cmd/mcpgo/main.go - Main entry point for the CLI application
-- internal/ - Internal packages for MCP, Ollama, configuration, and UI
-- go.mod and go.sum - Go module files
-- Makefile - Build automation
-- README.md - Project documentation
-- mcp.json - Example configuration file
-
-This is a Go CLI tool that bridges Ollama to MCP servers.
+assistant: Got it! I'll remember that your project is a Go CLI tool for bridging Ollama to MCP servers. This context will be available for our conversation.
 ┃
 
-❯ show me the main function
+❯ what was our previous conversation about?
 
-⚙  mcp › read_file  {"path": "cmd/mcpgo/main.go"}
-↳  read_file  package main
+⚙  mcp › get_context  {}
+↳  get_context  We discussed implementing a new feature for the app.
 
-import (
-    "bufio"
-    "context"
-    ...
+The model remembers our previous conversation about implementing a new feature. The memory server stores context between messages.
 ┃
-assistant: The main function sets up the Cobra CLI framework with several subcommands:
 
-1. **chat** - Interactive chat session (the default command)
-2. **tools** - List all available tools
-3. **models** - List Ollama models
-4. **validate** - Validate config and test connectivity
+❯ /tools
 
-The chat loop uses a REPL (read-eval-print loop) that:
-- Loads configuration from mcp.json
-- Validates the model supports tool calling
-- Connects to MCP servers
-- Maintains conversation history
-- Processes user input and executes tool calls as needed
+┌─────────────────────────────┬──────────────┬──────────────────────────────────┐
+│ Tool                        │ Server       │ Description                      │
+├─────────────────────────────┼──────────────┼──────────────────────────────────┤
+│ get_context                 │ memory       │ Retrieve stored conversation... │
+│ set_context                 │ memory       │ Store new conversation contex... │
+└─────────────────────────────┴──────────────┴──────────────────────────────────┘
 
-Special commands like `/tools`, `/clear`, `/model`, etc., are handled within the loop.
+❯ /model
+
+Current model: gemma4:e4b
 ┃
 
 ❯ /clear

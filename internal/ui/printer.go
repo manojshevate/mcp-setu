@@ -164,6 +164,18 @@ func (p *Printer) PrintAssistantResponse(content string) {
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("┃"))
 }
 
+// PrintLLMProcessing prints that the LLM is processing a message in verbose mode.
+func (p *Printer) PrintLLMProcessing(iterationNum int) {
+	if !p.verbose {
+		return
+	}
+	if iterationNum == 1 {
+		fmt.Fprintf(os.Stderr, "%s  %s  Processing message with LLM...\n", "💭", "llm")
+	} else {
+		fmt.Fprintf(os.Stderr, "%s  %s  Processing again (iteration %d) with LLM...\n", "💭", "llm", iterationNum)
+	}
+}
+
 // PrintToolCall prints a tool call in verbose mode.
 func (p *Printer) PrintToolCall(name string, args map[string]any) {
 	if !p.verbose {

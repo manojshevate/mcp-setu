@@ -8,7 +8,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/manojshevate/mcpgo/internal/config"
 )
 
 // Client is an HTTP client for the Ollama API.
@@ -17,12 +18,12 @@ type Client struct {
 	http    *http.Client
 }
 
-// NewClient creates a new Ollama client with a 30-second timeout.
+// NewClient creates a new Ollama client with a default timeout.
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		http: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: config.DefaultTimeout,
 		},
 	}
 }
@@ -59,8 +60,13 @@ func (c *Client) Chat(ctx context.Context, model string, messages []Message, too
 		return nil, fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(body))
 	}
 
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	var chatResp ChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(rawBody)).Decode(&chatResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -70,10 +76,12 @@ func (c *Client) Chat(ctx context.Context, model string, messages []Message, too
 // CheckToolSupport verifies that a model supports tool calling and exists locally.
 func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
 	// First, check if the model exists locally.
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/api/show?name=%s", c.baseURL, model), nil)
+	reqBody := []byte(fmt.Sprintf(`{"name":"%s"}`, model))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/show", bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {

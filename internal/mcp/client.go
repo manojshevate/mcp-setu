@@ -36,7 +36,7 @@ func NewClient(ctx context.Context, name string, cfg config.ServerConfig) (*Clie
 	}
 
 	// Add timeout to prevent hanging during server startup.
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)

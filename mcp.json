@@ -7,10 +7,12 @@
     "contextLength": 4096
   },
   "mcpServers": {
-    "filesystem": {
+    "memory": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
-      "env": {}
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
     }
   }
 }

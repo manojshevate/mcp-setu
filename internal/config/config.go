@@ -4,7 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
+
+// DefaultTimeout is the default timeout for operations (server startup, API requests).
+const DefaultTimeout = 300 * time.Second
 
 // Config is intentionally compatible with Claude Desktop's MCP config format.
 // The mcpServers block can be copied directly from:

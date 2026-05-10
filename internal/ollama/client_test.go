@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/manojshevate/mcpgo/internal/config"
 )
 
 // TestNewClient tests client initialization.
@@ -18,8 +20,8 @@ func TestNewClient(t *testing.T) {
 		t.Error("Expected http client to be initialized")
 	}
 
-	if client.http.Timeout != 30*time.Second {
-		t.Errorf("Expected 30s timeout, got %v", client.http.Timeout)
+	if client.http.Timeout != config.DefaultTimeout {
+		t.Errorf("Expected %v timeout, got %v", config.DefaultTimeout, client.http.Timeout)
 	}
 }
 
@@ -90,9 +92,9 @@ func TestKnownToolSupportedModels(t *testing.T) {
 	}
 
 	expectedModels := map[string]bool{
-		"gemma4":      true,
-		"qwen2.5":     true,
-		"llama3.2":    true,
+		"gemma4":       true,
+		"qwen2.5":      true,
+		"llama3.2":     true,
 		"mistral-nemo": true,
 	}
 

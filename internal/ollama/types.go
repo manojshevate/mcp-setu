@@ -26,14 +26,24 @@ type ChatRequest struct {
 type Message struct {
 	Role      string         `json:"role"`
 	Content   string         `json:"content,omitempty"`
+	Thinking  string         `json:"thinking,omitempty"`
 	ToolCalls []ToolCall     `json:"tool_calls,omitempty"`
 	ToolCall  *ToolCall      `json:"tool_call,omitempty"`
 }
 
 // ToolCall represents a tool call in a message.
 type ToolCall struct {
+	ID       string       `json:"id,omitempty"`
+	Name     string       `json:"name"`
+	Function *FunctionCall `json:"function,omitempty"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+}
+
+// FunctionCall represents a function call within a tool call (for newer Ollama format).
+type FunctionCall struct {
 	Name      string         `json:"name"`
 	Arguments map[string]any `json:"arguments"`
+	Index     int            `json:"index,omitempty"`
 }
 
 // Tool represents a tool definition for Ollama.
@@ -82,4 +92,16 @@ type ShowResponse struct {
 	ModelFile  string `json:"modelfile"`
 	Parameters string `json:"parameters"`
 	Template   string `json:"template"`
+}
+
+// NormalizeToolCall extracts the actual tool name and arguments from the ToolCall,
+// handling both the old format (name + arguments directly) and newer format
+// (nested in function object).
+func (tc *ToolCall) NormalizeToolCall() (name string, args map[string]any) {
+	// If using newer format with nested function object
+	if tc.Function != nil {
+		return tc.Function.Name, tc.Function.Arguments
+	}
+	// Fall back to older format with direct name and arguments
+	return tc.Name, tc.Arguments
 }
