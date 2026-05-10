@@ -162,7 +162,7 @@ mcp-setu reads its configuration from `mcp.json` by default. Use `--config <path
 
 **Other server examples:**
 
-You can customize `mcp.json` to add more servers. mcpgo supports multiple transport types:
+You can customize `mcp.json` to add more servers. mcp-setu supports multiple transport types:
 
 **Stdio Transport (Default - Local Subprocess):**
 
@@ -384,7 +384,7 @@ Each layer is independent and testable. No global state; all dependencies are pa
 
 ## MCP Transport Mechanisms
 
-mcpgo supports all three MCP transport mechanisms for maximum flexibility:
+mcp-setu supports all three MCP transport mechanisms for maximum flexibility:
 
 ### Transport Types Supported
 
@@ -458,11 +458,11 @@ mcpgo supports all three MCP transport mechanisms for maximum flexibility:
 
 For more information, see the [MCP specification on transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
-> **Note**: HTTP/SSE is deprecated in the MCP standard in favor of HTTP Streamable, but mcpgo continues to support it for compatibility with existing servers.
+> **Note**: HTTP/SSE is deprecated in the MCP standard in favor of HTTP Streamable, but mcp-setu continues to support it for compatibility with existing servers.
 
 ## MCP Authentication & Authorization
 
-mcpgo implements the MCP authorization specification for protecting remote MCP servers. This follows OAuth 2.1 standards with PKCE, Protected Resource Metadata discovery, and scope-based access control.
+mcp-setu implements the MCP authorization specification for protecting remote MCP servers. This follows OAuth 2.1 standards with PKCE, Protected Resource Metadata discovery, and scope-based access control.
 
 ### Supported Authentication Methods
 
@@ -527,7 +527,7 @@ mcpgo implements the MCP authorization specification for protecting remote MCP s
 Then set the environment variable before running:
 ```bash
 export MCP_API_TOKEN="your-api-token"
-mcpgo chat
+mcp-setu chat
 ```
 
 #### 3. OAuth 2.1 Authorization
@@ -592,7 +592,7 @@ For stdio-based servers, use environment variables:
 
 ### How MCP Authorization Works
 
-1. **401 Unauthorized Responses**: When an MCP server returns HTTP 401, mcpgo parses the `WWW-Authenticate` header to discover:
+1. **401 Unauthorized Responses**: When an MCP server returns HTTP 401, mcp-setu parses the `WWW-Authenticate` header to discover:
    - Resource metadata URL (where to find scope requirements)
    - Required scopes for the resource
    - Authorization server location
@@ -654,7 +654,7 @@ export MCP_SERVER_2_TOKEN="token-2"
 
 ### Authentication Standard Reference
 
-mcpgo implements the MCP Authorization specification:
+mcp-setu implements the MCP Authorization specification:
 - [MCP Authorization & Authorization Specification](https://modelcontextprotocol.io/specification/draft/basic/authorization)
 - [OAuth 2.1 (IETF Draft)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13)
 - [PKCE (RFC 7636)](https://datatracker.ietf.org/doc/html/rfc7636)

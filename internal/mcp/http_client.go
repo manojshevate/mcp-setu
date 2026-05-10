@@ -59,7 +59,7 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
-			Name:    "mcpgo",
+			Name:    "mcp-setu",
 			Version: "0.2.0",
 		},
 	}
@@ -304,7 +304,7 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
-			Name:    "mcpgo",
+			Name:    "mcp-setu",
 			Version: "0.2.0",
 		},
 	}
