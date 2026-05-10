@@ -1,12 +1,12 @@
 .PHONY: help build run install clean lint test vet coverage
 
 help:
-	@echo "mcpgo - MCP Bridge for Ollama"
+	@echo "mcp-setu - MCP Bridge for Ollama"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make build       - Build the mcpgo binary"
-	@echo "  make install     - Install mcpgo to GOPATH/bin"
-	@echo "  make run         - Run mcpgo in interactive chat mode"
+	@echo "  make build       - Build the mcp-setu binary"
+	@echo "  make install     - Install mcp-setu to GOPATH/bin"
+	@echo "  make run         - Run mcp-setu in interactive chat mode"
 	@echo "  make run-tools   - List all available tools"
 	@echo "  make run-models  - List available Ollama models"
 	@echo "  make run-validate - Validate config and test connectivity"
@@ -20,22 +20,22 @@ help:
 	@echo "Quick start:"
 	@echo "  1. make install"
 	@echo "  2. ollama pull gemma4:e4b"
-	@echo "  3. mcpgo chat"
+	@echo "  3. mcp-setu chat"
 
 VERSION ?= v0.1.0-dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-LDFLAGS := -ldflags="-X github.com/manojshevate/mcpgo/internal/version.Version=$(VERSION) -X github.com/manojshevate/mcpgo/internal/version.Commit=$(COMMIT) -X github.com/manojshevate/mcpgo/internal/version.BuildDate=$(BUILD_DATE)"
+LDFLAGS := -ldflags="-X github.com/manojshevate/mcp-setu/internal/version.Version=$(VERSION) -X github.com/manojshevate/mcp-setu/internal/version.Commit=$(COMMIT) -X github.com/manojshevate/mcp-setu/internal/version.BuildDate=$(BUILD_DATE)"
 
 build:
-	@echo "Building mcpgo ($(VERSION))..."
-	@go build $(LDFLAGS) -o bin/mcpgo ./cmd/mcpgo
-	@echo "Built: bin/mcpgo"
+	@echo "Building mcp-setu ($(VERSION))..."
+	@go build $(LDFLAGS) -o bin/mcp-setu ./cmd/mcp-setu
+	@echo "Built: bin/mcp-setu"
 
 install:
-	@echo "Installing mcpgo ($(VERSION))..."
-	@go install $(LDFLAGS) ./cmd/mcpgo/...
-	@echo "Installed to $(GOPATH)/bin/mcpgo"
+	@echo "Installing mcp-setu ($(VERSION))..."
+	@go install $(LDFLAGS) ./cmd/mcp-setu/...
+	@echo "Installed to $(GOPATH)/bin/mcp-setu"
 
 release-build:
 	@echo "Building release binaries..."
@@ -43,28 +43,28 @@ release-build:
 	@for os in linux darwin windows; do \
 		for arch in amd64 arm64; do \
 			if [ "$$os" = "windows" ]; then \
-				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcpgo_$(VERSION)_$${os}_$${arch}.exe ./cmd/mcpgo; \
+				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcp-setu_$(VERSION)_$${os}_$${arch}.exe ./cmd/mcp-setu; \
 			else \
-				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcpgo_$(VERSION)_$${os}_$${arch} ./cmd/mcpgo; \
+				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcp-setu_$(VERSION)_$${os}_$${arch} ./cmd/mcp-setu; \
 			fi; \
 		done; \
 	done
 	@echo "Release binaries built in bin/releases/"
 
 run: build
-	@./bin/mcpgo chat
+	@./bin/mcp-setu chat
 
 run-verbose: build
-	@./bin/mcpgo chat --verbose
+	@./bin/mcp-setu chat --verbose
 
 run-tools: build
-	@./bin/mcpgo tools
+	@./bin/mcp-setu tools
 
 run-models: build
-	@./bin/mcpgo models
+	@./bin/mcp-setu models
 
 run-validate: build
-	@./bin/mcpgo validate
+	@./bin/mcp-setu validate
 
 vet:
 	@echo "Running go vet..."
@@ -89,7 +89,7 @@ coverage:
 
 clean:
 	@echo "Cleaning..."
-	@rm -f bin/mcpgo
+	@rm -f bin/mcp-setu
 	@go clean
 	@echo "Cleaned"
 

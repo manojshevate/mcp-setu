@@ -167,7 +167,7 @@ func TestInitializeRequest(t *testing.T) {
 		ProtocolVersion: "2024-11-05",
 		Capabilities:    map[string]any{"tools": map[string]any{}},
 		ClientInfo: ClientInfo{
-			Name:    "mcpgo",
+			Name:    "mcp-setu",
 			Version: "0.1.0",
 		},
 	}
@@ -176,8 +176,8 @@ func TestInitializeRequest(t *testing.T) {
 		t.Errorf("Expected protocol version 2024-11-05, got %s", req.ProtocolVersion)
 	}
 
-	if req.ClientInfo.Name != "mcpgo" {
-		t.Errorf("Expected client name mcpgo, got %s", req.ClientInfo.Name)
+	if req.ClientInfo.Name != "mcp-setu" {
+		t.Errorf("Expected client name mcp-setu, got %s", req.ClientInfo.Name)
 	}
 
 	if req.ClientInfo.Version != "0.1.0" {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/manojshevate/mcpgo/internal/mcp"
+	"github.com/manojshevate/mcp-setu/internal/mcp"
 )
 
 // Printer handles all terminal output formatting.
@@ -48,7 +48,7 @@ func (p *Printer) PrintBanner(model, configPath string, serverCount, toolCount i
 
 	// Build visual banner with dynamic divider width
 	dividerStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	title := "mcpgo — MCP Bridge for Ollama"
+	title := "mcp-setu — MCP Bridge for Ollama"
 	dividerWidth := lipgloss.Width(title)
 	divider := strings.Repeat("━", dividerWidth)
 
@@ -230,10 +230,10 @@ func (p *Printer) PrintError(msg string) {
 		}
 	}
 	if strings.Contains(lower, "tool") || strings.Contains(lower, "support") {
-		fmt.Fprintf(os.Stderr, "→ See supported models: %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcpgo models"))
+		fmt.Fprintf(os.Stderr, "→ See supported models: %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcp-setu models"))
 	}
 	if strings.Contains(lower, "config") || strings.Contains(lower, "mcp.json") {
-		fmt.Fprintf(os.Stderr, "→ Run: %s to check your config\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcpgo validate"))
+		fmt.Fprintf(os.Stderr, "→ Run: %s to check your config\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcp-setu validate"))
 	}
 }
 
@@ -269,7 +269,7 @@ func (p *Printer) PrintHelp() {
 		{"/stats", "Show performance stats"},
 		{"/servers", "Show connected MCP servers"},
 		{"/help", "Show this help"},
-		{"exit / quit", "Quit mcpgo"},
+		{"exit / quit", "Quit mcp-setu"},
 	}
 
 	for _, c := range commands {

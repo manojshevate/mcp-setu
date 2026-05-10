@@ -14,9 +14,9 @@ const DefaultTimeout = 300 * time.Second
 // The mcpServers block can be copied directly from:
 //   macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
 //   Windows: %APPDATA%\Claude\claude_desktop_config.json
-// Only the "ollama" block is mcpgo-specific.
+// Only the "ollama" block is mcp-setu-specific.
 
-// Config represents the mcpgo configuration file.
+// Config represents the mcp-setu configuration file.
 type Config struct {
 	Ollama    OllamaConfig            `json:"ollama"`
 	MCPServers map[string]ServerConfig `json:"mcpServers"`

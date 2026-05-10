@@ -1,6 +1,6 @@
-# Contributing to mcpgo
+# Contributing to mcp-setu
 
-Thank you for considering contributing to mcpgo! This document provides guidelines and instructions for contributing.
+Thank you for considering contributing to mcp-setu! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -21,8 +21,8 @@ Thank you for considering contributing to mcpgo! This document provides guidelin
 
 ```bash
 # Clone the repository
-git clone https://github.com/manojshevate/mcpgo
-cd mcpgo
+git clone https://github.com/manojshevate/mcp-setu
+cd mcp-setu
 
 # Build the binary
 make build
@@ -55,19 +55,19 @@ make test  # when available
 
 4. **Validate configuration**
    ```bash
-   ./bin/mcpgo validate
+   ./bin/mcp-setu validate
    ```
 
 5. **Test your changes**
    ```bash
    # Test chat functionality
-   ./bin/mcpgo chat
+   ./bin/mcp-setu chat
    
    # Test with verbose output
-   ./bin/mcpgo chat --verbose
+   ./bin/mcp-setu chat --verbose
    
    # Test tool discovery
-   ./bin/mcpgo tools
+   ./bin/mcp-setu tools
    ```
 
 ### Code Style
@@ -147,7 +147,7 @@ Fixes #123
 
 ### High Priority
 
-- **Bug fixes** — Check [open issues](https://github.com/manojshevate/mcpgo/issues)
+- **Bug fixes** — Check [open issues](https://github.com/manojshevate/mcp-setu/issues)
 - **Performance** — Profile and optimize hot paths
 - **Documentation** — Expand examples, clarify complex sections
 - **Error messages** — Make them more helpful and actionable
@@ -174,9 +174,9 @@ Before submitting a PR:
 - [ ] Vet checks pass: `make vet`
 - [ ] Tested with Ollama running locally
 - [ ] Tested with at least one MCP server
-- [ ] Verbose mode shows expected output: `./bin/mcpgo chat --verbose`
-- [ ] Validation works: `./bin/mcpgo validate`
-- [ ] Help text is readable: `./bin/mcpgo --help`
+- [ ] Verbose mode shows expected output: `./bin/mcp-setu chat --verbose`
+- [ ] Validation works: `./bin/mcp-setu validate`
+- [ ] Help text is readable: `./bin/mcp-setu --help`
 
 ## Documentation Guidelines
 
@@ -211,7 +211,7 @@ Include:
 - Steps to reproduce
 - Expected vs actual behavior
 - Relevant error messages or logs
-- Output of `mcpgo validate`
+- Output of `mcp-setu validate`
 
 ### Feature Requests
 
@@ -233,4 +233,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-**Thank you for contributing to mcpgo!** 🎉
+**Thank you for contributing to mcp-setu!** 🎉

@@ -50,37 +50,37 @@ jobs:
         VERSION=${{ steps.tag_name.outputs.VERSION }}
         COMMIT=${{ github.sha }}
         BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-        OUTPUT_NAME="mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}"
+        OUTPUT_NAME="mcp-setu_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}"
 
         if [ "${{ matrix.os }}" = "windows" ]; then
           OUTPUT_NAME="${OUTPUT_NAME}.exe"
         fi
 
         go build \
-          -ldflags="-X github.com/manojshevate/mcpgo/internal/version.Version=${VERSION} \
-                    -X github.com/manojshevate/mcpgo/internal/version.Commit=${COMMIT} \
-                    -X github.com/manojshevate/mcpgo/internal/version.BuildDate=${BUILD_DATE}" \
+          -ldflags="-X github.com/manojshevate/mcp-setu/internal/version.Version=${VERSION} \
+                    -X github.com/manojshevate/mcp-setu/internal/version.Commit=${COMMIT} \
+                    -X github.com/manojshevate/mcp-setu/internal/version.BuildDate=${BUILD_DATE}" \
           -o "${OUTPUT_NAME}" \
-          ./cmd/mcpgo
+          ./cmd/mcp-setu
 
     - name: Create tarball/zip
       run: |
         VERSION=${{ steps.tag_name.outputs.VERSION }}
         if [ "${{ matrix.os }}" = "windows" ]; then
-          mv "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.exe" "mcpgo.exe"
-          zip -j "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.zip" "mcpgo.exe"
-          rm "mcpgo.exe"
+          mv "mcp-setu_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.exe" "mcp-setu.exe"
+          zip -j "mcp-setu_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.zip" "mcp-setu.exe"
+          rm "mcp-setu.exe"
         else
-          mv "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}" "mcpgo"
-          tar -czf "mcpgo_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz" "mcpgo"
-          rm "mcpgo"
+          mv "mcp-setu_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}" "mcp-setu"
+          tar -czf "mcp-setu_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz" "mcp-setu"
+          rm "mcp-setu"
         fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: releases-${{ matrix.os }}-${{ matrix.arch }}
-        path: mcpgo_*
+        path: mcp-setu_*
 
   create-release:
     name: Create Release
@@ -98,12 +98,12 @@ jobs:
     - name: Flatten artifacts
       run: |
         mkdir -p release-files
-        find artifacts -type f -name "mcpgo_*" -exec mv {} release-files/ \;
+        find artifacts -type f -name "mcp-setu_*" -exec mv {} release-files/ \;
 
     - name: Generate checksums
       run: |
         cd release-files
-        sha256sum mcpgo_* > checksums.txt
+        sha256sum mcp-setu_* > checksums.txt
         cat checksums.txt
 
     - name: Get version
@@ -132,7 +132,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd release-files
-        for file in mcpgo_* checksums.txt; do
+        for file in mcp-setu_* checksums.txt; do
           gh release upload ${{ steps.version.outputs.VERSION }} "$file"
         done
 
@@ -185,17 +185,17 @@ jobs:
         SHA_ARM64=${{ steps.sha_arm64.outputs.SHA }}
         mkdir -p homebrew-tap/Formula
         {
-          echo "class Mcpgo < Formula"
+          echo "class McpSetu < Formula"
           echo "  desc \"MCP bridge for Ollama\""
-          echo "  homepage \"https://github.com/manojshevate/mcpgo\""
+          echo "  homepage \"https://github.com/manojshevate/mcp-setu\""
           echo ""
           echo "  on_macos do"
           echo "    on_arm do"
-          echo "      url \"https://github.com/manojshevate/mcpgo/releases/download/${VERSION}/mcpgo_${VERSION}_darwin_arm64.tar.gz\""
+          echo "      url \"https://github.com/manojshevate/mcp-setu/releases/download/${VERSION}/mcp-setu_${VERSION}_darwin_arm64.tar.gz\""
           echo "      sha256 \"${SHA_ARM64}\""
           echo "    end"
           echo "    on_intel do"
-          echo "      url \"https://github.com/manojshevate/mcpgo/releases/download/${VERSION}/mcpgo_${VERSION}_darwin_amd64.tar.gz\""
+          echo "      url \"https://github.com/manojshevate/mcp-setu/releases/download/${VERSION}/mcp-setu_${VERSION}_darwin_amd64.tar.gz\""
           echo "      sha256 \"${SHA_AMD64}\""
           echo "    end"
           echo "  end"
@@ -204,22 +204,22 @@ jobs:
           echo "  license \"MIT\""
           echo ""
           echo "  def install"
-          echo "    bin.install \"mcpgo\""
+          echo "    bin.install \"mcp-setu\""
           echo "  end"
           echo ""
           echo "  def test"
-          echo "    assert_match \"mcpgo version\", shell_output(\"#{bin}/mcpgo version\")"
+          echo "    assert_match \"mcp-setu version\", shell_output(\"#{bin}/mcp-setu version\")"
           echo "  end"
           echo "end"
-        } > homebrew-tap/Formula/mcpgo.rb
+        } > homebrew-tap/Formula/mcp-setu.rb
 
     - name: Commit and push to homebrew-tap
       run: |
         cd homebrew-tap
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
-        git add Formula/mcpgo.rb
-        git commit -m "chore: update mcpgo formula to ${{ steps.release_info.outputs.VERSION }}" || true
+        git add Formula/mcp-setu.rb
+        git commit -m "chore: update mcp-setu formula to ${{ steps.release_info.outputs.VERSION }}" || true
         git push
       env:
         # HOMEBREW_TAP_TOKEN is required for this job

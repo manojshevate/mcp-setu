@@ -1,6 +1,6 @@
-# Homebrew Tap for mcpgo
+# Homebrew Tap for mcp-setu
 
-This is a custom Homebrew tap for distributing mcpgo on macOS.
+This is a custom Homebrew tap for distributing mcp-setu on macOS.
 
 ## Installation
 
@@ -8,18 +8,18 @@ This is a custom Homebrew tap for distributing mcpgo on macOS.
 # Add the tap
 brew tap manojshevate/tap
 
-# Install mcpgo
-brew install mcpgo
+# Install mcp-setu
+brew install mcp-setu
 
 # Verify installation
-mcpgo version
+mcp-setu version
 ```
 
 ## Updating
 
 ```bash
-# Update mcpgo
-brew upgrade mcpgo
+# Update mcp-setu
+brew upgrade mcp-setu
 ```
 
 ## Repository Structure
@@ -29,7 +29,7 @@ This repository should be set up as follows:
 ```
 homebrew-tap/
 ├── Formula/
-│   └── mcpgo.rb          # Main formula file
+│   └── mcp-setu.rb          # Main formula file
 ├── README.md             # This file
 └── .gitignore           # Git ignore file
 ```
@@ -41,11 +41,11 @@ To set up this repository:
 1. Create a new GitHub repository: `manojshevate/homebrew-tap`
 2. Clone this template
 3. Push to GitHub
-4. Update the GitHub Actions workflow in the main mcpgo repository to use this tap
+4. Update the GitHub Actions workflow in the main mcp-setu repository to use this tap
 
 ## Formula Updates
 
-The formula is automatically updated by the GitHub Actions workflow in the main mcpgo repository when a new release is created. The workflow:
+The formula is automatically updated by the GitHub Actions workflow in the main mcp-setu repository when a new release is created. The workflow:
 
 1. Builds binaries for all platforms
 2. Generates checksums
@@ -58,21 +58,21 @@ To test the formula locally before release:
 
 ```bash
 # Install from local formula
-brew install --verbose ./Formula/mcpgo.rb
+brew install --verbose ./Formula/mcp-setu.rb
 
 # Uninstall for cleanup
-brew uninstall mcpgo
+brew uninstall mcp-setu
 ```
 
 ## Manual Formula Updates
 
 If needed, manually update the formula by:
 
-1. Editing `Formula/mcpgo.rb`
+1. Editing `Formula/mcp-setu.rb`
 2. Updating the version number
 3. Downloading the binary and calculating SHA256:
    ```bash
-   sha256sum mcpgo_v0.1.0_darwin_amd64.tar.gz
+   sha256sum mcp-setu_v0.1.0_darwin_amd64.tar.gz
    ```
 4. Updating the sha256 values in the formula
 5. Committing and pushing changes

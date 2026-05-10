@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/manojshevate/mcpgo/internal/mcp"
-	"github.com/manojshevate/mcpgo/internal/ollama"
-	"github.com/manojshevate/mcpgo/internal/ui"
+	"github.com/manojshevate/mcp-setu/internal/mcp"
+	"github.com/manojshevate/mcp-setu/internal/ollama"
+	"github.com/manojshevate/mcp-setu/internal/ui"
 )
 
 // MockOllamaClient implements a mock Ollama client for testing.

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/manojshevate/mcpgo/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/config"
 )
 
 // Client is an HTTP client for the Ollama API.
@@ -107,8 +107,8 @@ func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
 		return fmt.Errorf(
 			"model %q does not support tool calling\n\n"+
 				"Supported models: %s\n\n"+
-				"→ Switch model in mcp.json or use: mcpgo chat --model gemma4:e4b\n"+
-				"→ See all local models: mcpgo models",
+				"→ Switch model in mcp.json or use: mcp-setu chat --model gemma4:e4b\n"+
+				"→ See all local models: mcp-setu models",
 			model, supportedList,
 		)
 	}

@@ -1,6 +1,6 @@
-# Release Process for mcpgo
+# Release Process for mcp-setu
 
-This document describes how to create and publish a new release of mcpgo.
+This document describes how to create and publish a new release of mcp-setu.
 
 ## Release Types
 
@@ -22,9 +22,9 @@ This document describes how to create and publish a new release of mcpgo.
 - [ ] Test the build: `make build`
 - [ ] Test the binary:
   ```bash
-  ./bin/mcpgo --help
-  ./bin/mcpgo version
-  ./bin/mcpgo validate
+  ./bin/mcp-setu --help
+  ./bin/mcp-setu version
+  ./bin/mcp-setu validate
   ```
 - [ ] Review release notes in `CHANGELOG.md`
 
@@ -63,7 +63,7 @@ git push origin v0.1.0
 
 The release workflow will automatically trigger when the tag is pushed:
 
-1. Go to GitHub Actions: https://github.com/manojshevate/mcpgo/actions
+1. Go to GitHub Actions: https://github.com/manojshevate/mcp-setu/actions
 2. Select the "Release" workflow
 3. Monitor the build process (typically 5-10 minutes)
 4. Verify that:
@@ -77,35 +77,35 @@ After the workflow completes, verify:
 
 #### Check GitHub Release
 
-- [ ] Release page created at: https://github.com/manojshevate/mcpgo/releases/tag/v0.1.0
+- [ ] Release page created at: https://github.com/manojshevate/mcp-setu/releases/tag/v0.1.0
 - [ ] All binary artifacts present:
-  - `mcpgo_v0.1.0_darwin_amd64.tar.gz`
-  - `mcpgo_v0.1.0_darwin_arm64.tar.gz`
-  - `mcpgo_v0.1.0_linux_amd64.tar.gz`
-  - `mcpgo_v0.1.0_linux_arm64.tar.gz`
-  - `mcpgo_v0.1.0_windows_amd64.zip`
-  - `mcpgo_v0.1.0_windows_arm64.zip`
+  - `mcp-setu_v0.1.0_darwin_amd64.tar.gz`
+  - `mcp-setu_v0.1.0_darwin_arm64.tar.gz`
+  - `mcp-setu_v0.1.0_linux_amd64.tar.gz`
+  - `mcp-setu_v0.1.0_linux_arm64.tar.gz`
+  - `mcp-setu_v0.1.0_windows_amd64.zip`
+  - `mcp-setu_v0.1.0_windows_arm64.zip`
   - `checksums.txt`
 
 #### Test Installation Methods
 
 ```bash
 # Test go install
-go install github.com/manojshevate/mcpgo/cmd/mcpgo@v0.1.0
-which mcpgo
-mcpgo version
+go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@v0.1.0
+which mcp-setu
+mcp-setu version
 
-# Should output: mcpgo version v0.1.0
+# Should output: mcp-setu version v0.1.0
 ```
 
 ```bash
 # Test Homebrew (after formula is updated)
 brew tap manojshevate/tap
-brew install mcpgo
-mcpgo version
+brew install mcp-setu
+mcp-setu version
 
 # Uninstall after testing
-brew uninstall mcpgo
+brew uninstall mcp-setu
 ```
 
 #### Verify Checksums
@@ -114,7 +114,7 @@ Download and verify binaries:
 
 ```bash
 # Download checksums file
-curl -L https://github.com/manojshevate/mcpgo/releases/download/v0.1.0/checksums.txt -o checksums.txt
+curl -L https://github.com/manojshevate/mcp-setu/releases/download/v0.1.0/checksums.txt -o checksums.txt
 
 # Verify a binary
 sha256sum -c checksums.txt | grep darwin_amd64
@@ -170,9 +170,9 @@ If manual update is needed:
 
 ```bash
 cd ~/homebrew-tap
-# Edit Formula/mcpgo.rb with new version and SHA256 values
-git add Formula/mcpgo.rb
-git commit -m "chore: update mcpgo formula to v0.1.0"
+# Edit Formula/mcp-setu.rb with new version and SHA256 values
+git add Formula/mcp-setu.rb
+git commit -m "chore: update mcp-setu formula to v0.1.0"
 git push origin main
 ```
 
@@ -182,7 +182,7 @@ Ensure the following secrets are configured in GitHub:
 
 - `HOMEBREW_TAP_TOKEN` (optional, uses GITHUB_TOKEN as fallback)
 
-Check at: https://github.com/manojshevate/mcpgo/settings/secrets
+Check at: https://github.com/manojshevate/mcp-setu/settings/secrets
 
 ## Release Checklist Template
 
