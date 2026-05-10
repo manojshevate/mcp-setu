@@ -1,9 +1,15 @@
 package mcp
 
+const (
+	// MCPProtocolVersion specifies the MCP protocol version to use.
+	// Using a stable, published version compatible with MCP servers.
+	MCPProtocolVersion = "2024-11-05"
+)
+
 // JSONRPCRequest represents a JSON-RPC 2.0 request.
 type JSONRPCRequest struct {
 	JSONRPC string        `json:"jsonrpc"`
-	ID      int           `json:"id,omitempty"`
+	ID      *int          `json:"id,omitempty"` // pointer to distinguish null from omitted
 	Method  string        `json:"method"`
 	Params  map[string]any `json:"params,omitempty"`
 }
@@ -11,7 +17,7 @@ type JSONRPCRequest struct {
 // JSONRPCResponse represents a JSON-RPC 2.0 response.
 type JSONRPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
-	ID      int         `json:"id,omitempty"`
+	ID      *int        `json:"id,omitempty"` // pointer to distinguish null from omitted
 	Result  map[string]any `json:"result,omitempty"`
 	Error   *JSONRPCError `json:"error,omitempty"`
 }
@@ -55,24 +61,3 @@ type CallToolRequest struct {
 	Arguments map[string]any `json:"arguments"`
 }
 
-// CallToolResult is the result of a tool call.
-type CallToolResult struct {
-	Type    string `json:"type"`
-	Content string `json:"content,omitempty"`
-	IsError bool   `json:"isError,omitempty"`
-}
-
-// ServerInfo holds metadata about a connected MCP server.
-type ServerInfo struct {
-	Name   string
-	Status string
-	Tools  int
-	Error  string
-}
-
-// ToolInfo holds metadata about a tool.
-type ToolInfo struct {
-	Name        string
-	Server      string
-	Description string
-}

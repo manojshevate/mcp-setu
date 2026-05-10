@@ -176,8 +176,9 @@ func runChat(ctx context.Context) error {
 	// Create bridge.
 	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, printer)
 
-	// Setup signal handling with context cancellation.
-	ctx, cancel := context.WithCancel(context.Background())
+	// Setup signal handling with context cancellation (inherit parent context).
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
@@ -201,11 +202,24 @@ func runChat(ctx context.Context) error {
 	inputCh := make(chan string)
 	scanDoneCh := make(chan struct{})
 
-	// Goroutine to read from scanner non-blockingly.
+	// Goroutine to read from scanner non-blockingly, respecting context cancellation.
 	go func() {
 		defer close(scanDoneCh)
-		for scanner.Scan() {
-			inputCh <- scanner.Text()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			if scanner.Scan() {
+				select {
+				case inputCh <- scanner.Text():
+				case <-ctx.Done():
+					return
+				}
+			} else {
+				return
+			}
 		}
 	}()
 

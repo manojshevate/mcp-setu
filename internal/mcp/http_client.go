@@ -54,13 +54,13 @@ func NewHTTPStreamableClient(ctx context.Context, name string, url string, token
 // initialize sends the initialize request and processes the response.
 func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 	initReq := InitializeRequest{
-		ProtocolVersion: "2025-05-01", // Latest MCP spec version
+		ProtocolVersion: MCPProtocolVersion,
 		Capabilities: map[string]any{
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
 			Name:    "mcp-setu",
-			Version: "0.2.0",
+			Version: "mcp-setu",
 		},
 	}
 
@@ -79,7 +79,10 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 		Params:  map[string]any{},
 	}
 	notifData, _ := json.Marshal(notif)
-	req, _ := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
+	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
+	if err != nil {
+		return fmt.Errorf("failed to create initialized notification request: %w", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	// Add Bearer token if available
 	if c.tokenProvider != nil {
@@ -87,7 +90,12 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 		}
 	}
-	_, _ = c.httpClient.Do(req)
+	httpResp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send initialized notification: %w", err)
+	}
+	defer httpResp.Body.Close()
+	io.Copy(io.Discard, httpResp.Body)
 
 	// List tools.
 	toolResp, err := c.sendRequest(ctx, "tools/list", map[string]any{})
@@ -167,7 +175,7 @@ func (c *HTTPStreamableClient) sendRequest(ctx context.Context, method string, p
 
 	req := JSONRPCRequest{
 		JSONRPC: "2.0",
-		ID:      id,
+		ID:      &id,
 		Method:  method,
 	}
 
@@ -299,13 +307,13 @@ func NewHTTPSSEClient(ctx context.Context, name string, url string, tokenProvide
 // initialize sends the initialize request and processes the response.
 func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 	initReq := InitializeRequest{
-		ProtocolVersion: "2025-05-01", // Latest MCP spec version
+		ProtocolVersion: MCPProtocolVersion,
 		Capabilities: map[string]any{
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
 			Name:    "mcp-setu",
-			Version: "0.2.0",
+			Version: "mcp-setu",
 		},
 	}
 
@@ -324,7 +332,10 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 		Params:  map[string]any{},
 	}
 	notifData, _ := json.Marshal(notif)
-	req, _ := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
+	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
+	if err != nil {
+		return fmt.Errorf("failed to create initialized notification request: %w", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	// Add Bearer token if available
 	if c.tokenProvider != nil {
@@ -332,7 +343,12 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 		}
 	}
-	_, _ = c.httpClient.Do(req)
+	httpResp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send initialized notification: %w", err)
+	}
+	defer httpResp.Body.Close()
+	io.Copy(io.Discard, httpResp.Body)
 
 	// List tools.
 	toolResp, err := c.sendRequest(ctx, "tools/list", map[string]any{})
@@ -411,7 +427,7 @@ func (c *HTTPSSEClient) sendRequest(ctx context.Context, method string, params a
 
 	req := JSONRPCRequest{
 		JSONRPC: "2.0",
-		ID:      id,
+		ID:      &id,
 		Method:  method,
 	}
 
@@ -511,7 +527,7 @@ func (c *HTTPSSEClient) readSSEResponse(ctx context.Context, body io.Reader, exp
 			}
 
 			// Match response ID
-			if resp.ID == expectedID {
+			if resp.ID != nil && *resp.ID == expectedID {
 				return &resp, nil
 			}
 		}
