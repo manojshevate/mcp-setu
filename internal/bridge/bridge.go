@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/manojshevate/mcpgo/internal/mcp"
 	"github.com/manojshevate/mcpgo/internal/ollama"
@@ -27,6 +28,16 @@ type MCPClient interface {
 	CloseAll() error
 }
 
+// Stats tracks performance metrics for a session.
+type Stats struct {
+	MessageCount      int           // Total messages sent
+	ToolCallCount     int           // Total tool calls made
+	TotalDuration     time.Duration // Total time spent processing
+	IterationCount    int           // Total iterations across all messages
+	LastResponseTime  time.Duration // Last message response time
+	AverageLoopTime   time.Duration // Average time per iteration
+}
+
 // Bridge orchestrates the agentic loop between Ollama and MCP servers.
 // It maintains the conversation state and coordinates tool calls between the
 // language model and MCP-connected tools, with a safety limit of 20 iterations.
@@ -36,6 +47,8 @@ type Bridge struct {
 	model        string
 	temperature  float64
 	printer      *ui.Printer
+	stats        Stats
+	startTime    time.Time
 }
 
 // NewBridge creates a new Bridge.
@@ -46,17 +59,47 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 		model:        model,
 		temperature:  temperature,
 		printer:      printer,
+		startTime:    time.Now(),
 	}
+}
+
+// SetModel changes the model and validates tool support.
+func (b *Bridge) SetModel(ctx context.Context, model string) error {
+	if model == b.model {
+		return nil
+	}
+	if err := b.ollamaClient.CheckToolSupport(ctx, model); err != nil {
+		return err
+	}
+	b.model = model
+	return nil
+}
+
+// GetModel returns the current model.
+func (b *Bridge) GetModel() string {
+	return b.model
+}
+
+// GetStats returns the current stats.
+func (b *Bridge) GetStats() Stats {
+	b.stats.TotalDuration = time.Since(b.startTime)
+	if b.stats.IterationCount > 0 {
+		b.stats.AverageLoopTime = b.stats.TotalDuration / time.Duration(b.stats.IterationCount)
+	}
+	return b.stats
 }
 
 // ProcessMessage runs the agentic loop for a user message.
 func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) (string, error) {
+	start := time.Now()
+
 	// Build tools list for Ollama.
 	tools := b.buildToolsList()
 
 	// Agentic loop.
 	maxIterations := 20
 	iteration := 0
+	toolCallCount := 0
 
 	for iteration < maxIterations {
 		iteration++
@@ -76,9 +119,16 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		// Check for tool calls.
 		if len(resp.ToolCalls) == 0 {
 			// No tool calls, return the response content.
+			duration := time.Since(start)
+			b.stats.MessageCount++
+			b.stats.ToolCallCount += toolCallCount
+			b.stats.IterationCount += iteration
+			b.stats.LastResponseTime = duration
 			return resp.Content, nil
 		}
-	
+
+		toolCallCount += len(resp.ToolCalls)
+
 		// Execute tool calls in parallel for independent calls.
 		toolResults := b.executeToolsParallel(ctx, resp.ToolCalls)
 

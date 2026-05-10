@@ -181,10 +181,30 @@ func runChat(ctx context.Context) error {
 		// Check if context was cancelled (signal received) or input received.
 		select {
 		case <-ctx.Done():
+			stats := br.GetStats()
+			statsInfo := ui.StatsInfo{
+				MessageCount:     stats.MessageCount,
+				ToolCallCount:    stats.ToolCallCount,
+				TotalDuration:    stats.TotalDuration,
+				IterationCount:   stats.IterationCount,
+				LastResponseTime: stats.LastResponseTime,
+				AverageLoopTime:  stats.AverageLoopTime,
+			}
+			printer.PrintExitSummary(statsInfo)
 			return nil
 		case input, ok := <-inputCh:
 			if !ok {
 				// Input goroutine closed (EOF or error).
+				stats := br.GetStats()
+				statsInfo := ui.StatsInfo{
+					MessageCount:     stats.MessageCount,
+					ToolCallCount:    stats.ToolCallCount,
+					TotalDuration:    stats.TotalDuration,
+					IterationCount:   stats.IterationCount,
+					LastResponseTime: stats.LastResponseTime,
+					AverageLoopTime:  stats.AverageLoopTime,
+				}
+				printer.PrintExitSummary(statsInfo)
 				return nil
 			}
 			input = strings.TrimSpace(input)
@@ -193,17 +213,28 @@ func runChat(ctx context.Context) error {
 			}
 
 			// Handle special commands.
-			switch input {
-			case "exit", "quit":
+			if input == "exit" || input == "quit" {
 				printer.PrintSuccess("Goodbye!")
+				stats := br.GetStats()
+				statsInfo := ui.StatsInfo{
+					MessageCount:     stats.MessageCount,
+					ToolCallCount:    stats.ToolCallCount,
+					TotalDuration:    stats.TotalDuration,
+					IterationCount:   stats.IterationCount,
+					LastResponseTime: stats.LastResponseTime,
+					AverageLoopTime:  stats.AverageLoopTime,
+				}
+				printer.PrintExitSummary(statsInfo)
 				return nil
+			}
 
-			case "/tools":
+			if input == "/tools" {
 				tools := ui.GetToolsTableFromMCP(mcpClient)
 				printer.PrintToolsTable(tools)
 				continue
+			}
 
-			case "/clear":
+			if input == "/clear" {
 				history = []ollama.Message{
 					{
 						Role:    "system",
@@ -212,17 +243,64 @@ func runChat(ctx context.Context) error {
 				}
 				printer.PrintSuccess("Conversation cleared.")
 				continue
+			}
 
-			case "/model":
-				fmt.Fprintf(os.Stdout, "Current model: %s\n\n", model)
+			// Handle /model command with optional model name.
+			if input == "/model" || strings.HasPrefix(input, "/model ") {
+				if input == "/model" {
+					fmt.Fprintf(os.Stdout, "Current model: %s\n", model)
+					// Show available models for switching.
+					models, err := ollamaClient.ListLocalModels(ctx)
+					if err == nil {
+						var modelInfos []ui.ModelInfo
+						for _, m := range models {
+							modelInfos = append(modelInfos, ui.ModelInfo{
+								Name:          m.Name,
+								Size:          m.Size,
+								ToolSupported: m.ToolSupported,
+							})
+						}
+						printer.PrintModelSuggestions(model, modelInfos)
+					}
+				} else {
+					// Extract model name from "/model <name>".
+					parts := strings.Fields(input)
+					if len(parts) == 2 {
+						newModel := parts[1]
+						if err := br.SetModel(ctx, newModel); err != nil {
+							printer.PrintError(fmt.Sprintf("Failed to switch to model %q: %v", newModel, err))
+						} else {
+							model = newModel
+							fmt.Fprintf(os.Stdout, "✓ Switched to model: %s\n\n", model)
+						}
+					} else {
+						printer.PrintError("Usage: /model <name>")
+					}
+				}
 				continue
+			}
 
-			case "/servers":
+			if input == "/stats" {
+				stats := br.GetStats()
+				statsInfo := ui.StatsInfo{
+					MessageCount:     stats.MessageCount,
+					ToolCallCount:    stats.ToolCallCount,
+					TotalDuration:    stats.TotalDuration,
+					IterationCount:   stats.IterationCount,
+					LastResponseTime: stats.LastResponseTime,
+					AverageLoopTime:  stats.AverageLoopTime,
+				}
+				printer.PrintStats(statsInfo)
+				continue
+			}
+
+			if input == "/servers" {
 				serverInfos := ui.GetServersTableInfo(mcpClient)
 				printer.PrintServerTable(serverInfos)
 				continue
+			}
 
-			case "/help":
+			if input == "/help" {
 				printer.PrintHelp()
 				continue
 			}

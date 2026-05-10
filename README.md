@@ -216,14 +216,16 @@ mcpgo chat --verbose --model gemma4:e4b --system "You are a Python expert."
 
 Once in the interactive chat loop, these commands are available:
 
-| Command      | Description                    |
-|--------------|--------------------------------|
-| `/tools`     | List all available tools       |
-| `/clear`     | Clear conversation history     |
-| `/model`     | Show current model             |
-| `/servers`   | Show connected MCP servers     |
-| `/help`      | Show this help                 |
-| `exit`/`quit`| Quit mcpgo                     |
+| Command           | Description                               |
+|-------------------|-------------------------------------------|
+| `/tools`          | List all available tools                  |
+| `/clear`          | Clear conversation history                |
+| `/model`          | Show current model and available options  |
+| `/model <name>`   | Switch to a different model               |
+| `/stats`          | Show performance statistics               |
+| `/servers`        | Show connected MCP servers                |
+| `/help`           | Show this help                            |
+| `exit`/`quit`     | Quit mcpgo                                |
 
 ## Example Session
 
@@ -408,6 +410,18 @@ mcpgo models
 
 ### Planned Enhancements
 
+#### ✅ Completed
+
+- [x] **Model switching during chat**
+  - Change models mid-conversation with `/model <name>` command
+  - Auto-suggests available models when you run `/model` without arguments
+  - Validates tool support before switching
+
+- [x] **Performance monitoring**
+  - Track response times, tool calls, iterations, and session duration
+  - Display stats with `/stats` command
+  - Show summary on exit with message count, tools, iterations, and duration
+
 #### 🚀 High Priority
 
 - [ ] **Conversation history export**
@@ -415,11 +429,6 @@ mcpgo models
   - Load previous conversations
   - Search within history
   - Implementation: Add `SaveHistory(filename string)` and `LoadHistory(filename string)` methods to bridge
-
-- [ ] **Model switching during chat**
-  - Change models mid-conversation with `/model switch <name>`
-  - Useful for testing different models without restarting
-  - Implementation: Add `SetModel(model string)` method to bridge, validate with CheckToolSupport
 
 - [ ] **Tool result filtering**
   - Filter or transform tool results before sending to model
