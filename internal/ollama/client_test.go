@@ -42,6 +42,8 @@ func TestSupportsToolCalling(t *testing.T) {
 	}{
 		{"gemma4:e4b", true},
 		{"gemma4:latest", true},
+		{"gemma3:2b", true},
+		{"gemma2:2b", true},
 		{"qwen2.5:7b", true},
 		{"qwen3:14b", true},
 		{"llama3.2:3b", true},
@@ -93,6 +95,7 @@ func TestKnownToolSupportedModels(t *testing.T) {
 
 	expectedModels := map[string]bool{
 		"gemma4":       true,
+		"gemma3":       true,
 		"qwen2.5":      true,
 		"llama3.2":     true,
 		"mistral-nemo": true,

@@ -49,6 +49,7 @@ type Bridge struct {
 	printer      *ui.Printer
 	stats        Stats
 	startTime    time.Time
+	mu           sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
@@ -65,23 +66,33 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 
 // SetModel changes the model and validates tool support.
 func (b *Bridge) SetModel(ctx context.Context, model string) error {
-	if model == b.model {
+	b.mu.RLock()
+	currentModel := b.model
+	b.mu.RUnlock()
+
+	if model == currentModel {
 		return nil
 	}
 	if err := b.ollamaClient.CheckToolSupport(ctx, model); err != nil {
 		return err
 	}
+	b.mu.Lock()
 	b.model = model
+	b.mu.Unlock()
 	return nil
 }
 
 // GetModel returns the current model.
 func (b *Bridge) GetModel() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.model
 }
 
 // GetStats returns the current stats.
 func (b *Bridge) GetStats() Stats {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.stats.TotalDuration = time.Since(b.startTime)
 	if b.stats.IterationCount > 0 {
 		b.stats.AverageLoopTime = b.stats.TotalDuration / time.Duration(b.stats.IterationCount)
@@ -108,7 +119,11 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		b.printer.PrintLLMProcessing(iteration)
 
 		// Call Ollama with tools.
-		resp, err := b.ollamaClient.Chat(ctx, b.model, messages, tools, b.temperature)
+		b.mu.RLock()
+		model := b.model
+		temperature := b.temperature
+		b.mu.RUnlock()
+		resp, err := b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
 		if err != nil {
 			return "", fmt.Errorf("ollama chat failed: %w", err)
 		}
@@ -120,10 +135,12 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		if len(resp.ToolCalls) == 0 {
 			// No tool calls, return the response content.
 			duration := time.Since(start)
+			b.mu.Lock()
 			b.stats.MessageCount++
 			b.stats.ToolCallCount += toolCallCount
 			b.stats.IterationCount += iteration
 			b.stats.LastResponseTime = duration
+			b.mu.Unlock()
 			return resp.Content, nil
 		}
 
@@ -133,14 +150,12 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		toolResults := b.executeToolsParallel(ctx, resp.ToolCalls)
 
 		// Add tool results to conversation history in order.
-		for i, call := range resp.ToolCalls {
+		for i := range resp.ToolCalls {
 			result := toolResults[i]
-			// Extract tool name and arguments (handles both old and new formats)
-			toolName, _ := call.NormalizeToolCall()
-			// Add tool result as a message.
+			// Add tool result as a message with proper "tool" role.
 			messages = append(messages, ollama.Message{
-				Role:    "user",
-				Content: fmt.Sprintf("Tool %q result: %s", toolName, result),
+				Role:    "tool",
+				Content: result,
 			})
 		}
 	}
@@ -148,21 +163,25 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	return "", fmt.Errorf("agent loop exceeded %d iterations — possible infinite tool loop", maxIterations)
 }
 
-// executeToolsParallel executes multiple tool calls concurrently.
+// executeToolsParallel executes multiple tool calls concurrently with a limit of 8 workers.
 // Results are returned in the same order as the input tool calls.
 func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCall) []string {
 	if len(calls) == 0 {
 		return []string{}
 	}
 
+	const maxWorkers = 8
 	results := make([]string, len(calls))
 	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, maxWorkers)
 
-	// Execute all tool calls concurrently.
+	// Execute all tool calls concurrently with bounded workers.
 	for i, call := range calls {
 		wg.Add(1)
 		go func(index int, toolCall ollama.ToolCall) {
 			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
 
 			// Extract tool name and arguments (handles both old and new formats)
 			toolName, toolArgs := toolCall.NormalizeToolCall()

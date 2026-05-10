@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/manojshevate/mcp-setu/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/version"
 )
 
 // MCPClientInterface defines the methods all MCP client implementations must support.
@@ -123,13 +124,13 @@ func NewStdioClient(ctx context.Context, name string, cfg config.ServerConfig) (
 // initialize sends the initialize request and processes the response.
 func (c *Client) initialize(ctx context.Context) error {
 	initReq := InitializeRequest{
-		ProtocolVersion: "2025-05-01", // Latest MCP spec version
+		ProtocolVersion: MCPProtocolVersion,
 		Capabilities: map[string]any{
 			"tools": map[string]any{},
 		},
 		ClientInfo: ClientInfo{
 			Name:    "mcp-setu",
-			Version: "0.1.0",
+			Version: version.Version,
 		},
 	}
 
@@ -222,15 +223,18 @@ func (c *Client) CallTool(ctx context.Context, name string, arguments map[string
 }
 
 // sendRequest sends a JSON-RPC request and waits for a response.
+// Note: This serializes all I/O to prevent race conditions on the stdio stream.
+// Multiple concurrent tool calls should be serialized at a higher level.
 func (c *Client) sendRequest(ctx context.Context, method string, params any) (*JSONRPCResponse, error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	id := c.nextID
 	c.nextID++
-	c.mu.Unlock()
 
 	req := JSONRPCRequest{
 		JSONRPC: "2.0",
-		ID:      id,
+		ID:      &id,
 		Method:  method,
 	}
 
@@ -274,7 +278,7 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 		}
 
 		// Match response ID.
-		if resp.ID == id {
+		if resp.ID != nil && *resp.ID == id {
 			return &resp, nil
 		}
 	}
@@ -292,17 +296,23 @@ func (c *Client) Close() error {
 		_ = c.process.Kill()
 	}
 
-	// Wait a bit for graceful shutdown.
-	time.Sleep(3 * time.Second)
+	// Wait for process to exit with a timeout of 3 seconds.
+	done := make(chan error, 1)
+	go func() {
+		done <- c.cmd.Wait()
+	}()
 
-	// Check if still running and force kill if necessary.
-	if c.cmd.ProcessState == nil || !c.cmd.ProcessState.Exited() {
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(3 * time.Second):
+		// Timeout: force kill the process
 		if err := c.process.Kill(); err != nil {
 			return fmt.Errorf("failed to kill process: %w", err)
 		}
+		// Wait for kill to be processed
+		return <-done
 	}
-
-	return c.cmd.Wait()
 }
 
 // validateCommand checks that a command is safe to execute.

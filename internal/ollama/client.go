@@ -76,7 +76,7 @@ func (c *Client) Chat(ctx context.Context, model string, messages []Message, too
 // CheckToolSupport verifies that a model supports tool calling and exists locally.
 func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
 	// First, check if the model exists locally.
-	reqBody := []byte(fmt.Sprintf(`{"name":"%s"}`, model))
+	reqBody, _ := json.Marshal(map[string]string{"name": model})
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/show", bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

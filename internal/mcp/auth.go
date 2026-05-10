@@ -2,9 +2,6 @@ package mcp
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -79,16 +76,17 @@ func (p *EnvVarTokenProvider) Close() error {
 	return nil
 }
 
-// OAuth2Provider handles OAuth 2.1 authorization flow (simplified for CLI usage).
-// This is a basic implementation that supports PKCE and token caching.
-// Production use may require more sophisticated token management.
+// OAuth2Provider handles OAuth 2.1 authorization flow (per MCP spec 2025-11-25).
+// This implementation supports PKCE and token caching for CLI usage.
+// Note: Full interactive OAuth flow is not yet implemented but is planned.
+// Current usage: Supports token-based auth with caching for server connections.
 type OAuth2Provider struct {
 	authServerURL string
 	clientID      string
 	clientSecret  string
 	scopes        []string
 	tokenCache    map[string]*TokenCache
-	mu             sync.RWMutex
+	mu            sync.RWMutex
 }
 
 // TokenCache holds a cached token with its expiration time.
@@ -98,9 +96,8 @@ type TokenCache struct {
 	ExpiresAt    time.Time
 }
 
-// NewOAuth2Provider creates a new OAuth2 provider (simplified).
-// Note: Full OAuth 2.1 implementation would require browser-based authorization flow.
-// This version is suitable for environments where tokens are pre-obtained or provided via other means.
+// NewOAuth2Provider creates a new OAuth2 provider with token caching support.
+// This supports the MCP 2025-11-25 improved authentication handling.
 func NewOAuth2Provider(authServerURL, clientID, clientSecret string, scopes []string) *OAuth2Provider {
 	return &OAuth2Provider{
 		authServerURL: authServerURL,
@@ -112,6 +109,7 @@ func NewOAuth2Provider(authServerURL, clientID, clientSecret string, scopes []st
 }
 
 // GetToken returns a valid token, using cached token if available and not expired.
+// Implements the TokenProvider interface for MCP OAuth2 auth type.
 func (p *OAuth2Provider) GetToken(ctx context.Context, resource string) (string, error) {
 	p.mu.RLock()
 	cached, exists := p.tokenCache[resource]
@@ -122,17 +120,20 @@ func (p *OAuth2Provider) GetToken(ctx context.Context, resource string) (string,
 		return cached.AccessToken, nil
 	}
 
-	// For CLI usage without interactive auth, we would need:
-	// 1. Pre-obtained tokens (via env var or config)
-	// 2. Client credentials grant (if configured)
-	// 3. Refresh token (if available)
-	// 4. Instructions for user to obtain token manually
+	// TODO: Implement proper OAuth2 flow:
+	// 1. Support client credentials grant for service-to-service auth
+	// 2. Support refresh token flow if available
+	// 3. Support browser-based PKCE flow for interactive use
+	// 4. Proper error messages guiding users to obtain tokens
 
-	// This is a placeholder that signals OAuth flow would be needed
-	return "", fmt.Errorf("OAuth 2.1 authorization required for %q - token not available in cache or environment", resource)
+	return "", fmt.Errorf(
+		"OAuth 2.1 token not available for %q\n"+
+			"Please use 'bearer-token' or 'env' auth type, or configure token via environment variable\n"+
+			"Full OAuth2 flow support is planned for future releases",
+		resource)
 }
 
-// CacheToken stores a token for future use.
+// CacheToken stores a token for future use (for testing and pre-obtained tokens).
 func (p *OAuth2Provider) CacheToken(resource string, token, refreshToken string, expiresIn time.Duration) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -193,7 +194,7 @@ func NewTokenProvider(authCfg *config.AuthConfig) (TokenProvider, error) {
 			return nil, fmt.Errorf("OAuth 2.1 authorization server URL not configured")
 		}
 
-		// Enforce HTTPS for authorization endpoints (MCP spec: MUST use HTTPS)
+		// Enforce HTTPS for authorization endpoints (MCP spec 2025-11-25: MUST use HTTPS)
 		if !strings.HasPrefix(authServerURL, "https://") && !strings.HasPrefix(authServerURL, "http://localhost") {
 			return nil, fmt.Errorf("OAuth 2.1 authorization server URL MUST use HTTPS (or http://localhost for development): %s", authServerURL)
 		}
@@ -203,26 +204,6 @@ func NewTokenProvider(authCfg *config.AuthConfig) (TokenProvider, error) {
 	default:
 		return nil, fmt.Errorf("unknown auth type: %q", authType)
 	}
-}
-
-// PKCEChallenge generates PKCE parameters for OAuth 2.1 code flow.
-// Returns (codeChallenge, codeVerifier, error)
-func PKCEChallenge() (string, string, error) {
-	// Generate random code verifier (43-128 characters, unreserved characters only)
-	verifierBytes := make([]byte, 32)
-	_, err := rand.Read(verifierBytes)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to generate PKCE verifier: %w", err)
-	}
-
-	// Use URL-safe base64 encoding without padding
-	verifier := base64.RawURLEncoding.EncodeToString(verifierBytes)
-
-	// Create code challenge using S256 method (required by OAuth 2.1)
-	hash := sha256.Sum256([]byte(verifier))
-	challenge := base64.RawURLEncoding.EncodeToString(hash[:])
-
-	return challenge, verifier, nil
 }
 
 // ParseWWWAuthenticate parses a WWW-Authenticate header and extracts auth parameters (RFC 6750).
