@@ -16,6 +16,7 @@ import (
 	"github.com/manojshevate/mcpgo/internal/mcp"
 	"github.com/manojshevate/mcpgo/internal/ollama"
 	"github.com/manojshevate/mcpgo/internal/ui"
+	"github.com/manojshevate/mcpgo/internal/version"
 )
 
 var (
@@ -54,6 +55,22 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "mcp.json", "path to config file")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print tool calls and results")
+
+	// Version subcommand.
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("mcpgo version %s\n", version.Version)
+			if version.Commit != "unknown" {
+				fmt.Printf("commit: %s\n", version.Commit)
+			}
+			if version.BuildDate != "unknown" {
+				fmt.Printf("build date: %s\n", version.BuildDate)
+			}
+		},
+	}
+	rootCmd.AddCommand(versionCmd)
 
 	// Chat subcommand (also default).
 	chatCmd := &cobra.Command{

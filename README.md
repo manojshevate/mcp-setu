@@ -13,26 +13,60 @@ mcpgo connects your local Ollama instance to MCP servers, enabling models like G
 - **Node.js 18+** — Required for npx-based MCP servers like the filesystem and SQLite tools
 - **A tool-calling capable model** — See [Supported Models](#supported-models) for recommendations
 
-## Quick Start
+## Installation
 
-### 1. Install mcpgo
+### Using `go install` (Recommended)
 
-**Option A: Build from source**
+```bash
+go install github.com/manojshevate/mcpgo/cmd/mcpgo@latest
+```
+
+This installs the latest released version directly to `$GOPATH/bin/mcpgo`.
+
+For a specific version:
+```bash
+go install github.com/manojshevate/mcpgo/cmd/mcpgo@v0.1.0
+```
+
+### Using Homebrew (macOS)
+
+```bash
+brew tap manojshevate/tap
+brew install mcpgo
+```
+
+To upgrade:
+```bash
+brew upgrade mcpgo
+```
+
+### Building from Source
+
 ```bash
 git clone https://github.com/manojshevate/mcpgo
 cd mcpgo
 make install
 ```
 
-**Option B: Build and run locally**
+Or to build and run locally without installing:
 ```bash
-git clone https://github.com/manojshevate/mcpgo
-cd mcpgo
 make build
 ./bin/mcpgo chat
 ```
 
+## Quick Start
+
+### 1. Verify Installation
+
+After installing via any method above, verify the installation:
+
+```bash
+mcpgo version
+```
+
 ### 2. Start Ollama
+
+### 3. Start Ollama
 
 ```bash
 ollama serve
@@ -40,7 +74,7 @@ ollama serve
 
 Run this in a separate terminal. It will listen on `http://localhost:11434`.
 
-### 3. Pull a model
+### 4. Pull a model
 
 ```bash
 ollama pull gemma4:e4b
@@ -48,7 +82,7 @@ ollama pull gemma4:e4b
 
 See [Supported Models](#supported-models) for recommended models.
 
-### 4. Run mcpgo
+### 5. Run mcpgo
 
 ```bash
 mcpgo chat

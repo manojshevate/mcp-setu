@@ -22,15 +22,34 @@ help:
 	@echo "  2. ollama pull gemma4:e4b"
 	@echo "  3. mcpgo chat"
 
+VERSION ?= v0.1.0-dev
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS := -ldflags="-X github.com/manojshevate/mcpgo/internal/version.Version=$(VERSION) -X github.com/manojshevate/mcpgo/internal/version.Commit=$(COMMIT) -X github.com/manojshevate/mcpgo/internal/version.BuildDate=$(BUILD_DATE)"
+
 build:
-	@echo "Building mcpgo..."
-	@go build -o bin/mcpgo ./cmd/mcpgo
+	@echo "Building mcpgo ($(VERSION))..."
+	@go build $(LDFLAGS) -o bin/mcpgo ./cmd/mcpgo
 	@echo "Built: bin/mcpgo"
 
 install:
-	@echo "Installing mcpgo..."
-	@go install ./cmd/mcpgo/...
+	@echo "Installing mcpgo ($(VERSION))..."
+	@go install $(LDFLAGS) ./cmd/mcpgo/...
 	@echo "Installed to $(GOPATH)/bin/mcpgo"
+
+release-build:
+	@echo "Building release binaries..."
+	@mkdir -p bin/releases
+	@for os in linux darwin windows; do \
+		for arch in amd64 arm64; do \
+			if [ "$$os" = "windows" ]; then \
+				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcpgo_$(VERSION)_$${os}_$${arch}.exe ./cmd/mcpgo; \
+			else \
+				GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o bin/releases/mcpgo_$(VERSION)_$${os}_$${arch} ./cmd/mcpgo; \
+			fi; \
+		done; \
+	done
+	@echo "Release binaries built in bin/releases/"
 
 run: build
 	@./bin/mcpgo chat
