@@ -1,0 +1,310 @@
+# CLI Reference
+
+Complete command-line reference for `mcp-setu`.
+
+## Command Overview
+
+| Command | Purpose |
+|---------|---------|
+| `mcp-setu chat` | Start interactive chat session (default) |
+| `mcp-setu tools` | List all available tools from MCP servers |
+| `mcp-setu models` | List local Ollama models and tool support |
+| `mcp-setu validate` | Validate config and test connectivity |
+| `mcp-setu version` | Show version information |
+
+## Global Flags
+
+```
+--config string    Path to config file (default: mcp.json)
+--verbose           Print tool calls and results to stderr
+--help              Show help for a command
+```
+
+### Examples
+
+```bash
+# Use custom config
+mcp-setu --config /etc/mcp/config.json chat
+
+# Enable verbose output
+mcp-setu --verbose chat
+
+# Get help
+mcp-setu --help
+mcp-setu chat --help
+```
+
+## Commands
+
+### chat
+
+Start an interactive multi-turn chat session with Ollama using configured MCP tools.
+
+```bash
+mcp-setu chat [flags]
+```
+
+**Flags:**
+
+```
+--model string      Override model from config (e.g., --model qwen2.5:7b)
+--system string     Override system prompt from config
+```
+
+**REPL Commands** (once in chat):
+
+| Command | Purpose |
+|---------|---------|
+| `/tools` | List all available tools |
+| `/clear` | Clear conversation history |
+| `/model` | Show current model and available options |
+| `/model <name>` | Switch to a different model |
+| `/stats` | Show performance statistics |
+| `/servers` | Show connected MCP servers |
+| `/help` | Show REPL help |
+| `exit`/`quit` | Quit the session |
+
+**Examples:**
+
+```bash
+# Start chat with default config
+mcp-setu chat
+
+# Override model
+mcp-setu chat --model llama3.3:70b
+
+# Override system prompt
+mcp-setu chat --system "You are a Python expert"
+
+# Both
+mcp-setu chat --model qwen2.5:7b --system "Code review expert"
+
+# Use verbose mode
+mcp-setu chat --verbose
+```
+
+### tools
+
+List all tools available from connected MCP servers.
+
+```bash
+mcp-setu tools
+```
+
+**Output Example:**
+
+```
+┌──────────────────────────────┬──────────────┬──────────────────────┐
+│ Tool                         │ Server       │ Description          │
+├──────────────────────────────┼──────────────┼──────────────────────┤
+│ read_file                    │ filesystem   │ Read file contents   │
+│ write_file                   │ filesystem   │ Write file contents  │
+│ read_directory               │ filesystem   │ List directory       │
+│ query                        │ sqlite       │ Execute SQL query    │
+│ set_context                  │ memory       │ Store context        │
+│ get_context                  │ memory       │ Retrieve context     │
+└──────────────────────────────┴──────────────┴──────────────────────┘
+```
+
+**Flags:**
+
+```
+--config string    Path to config file (default: mcp.json)
+--verbose           Print tool calls and results
+```
+
+### models
+
+List Ollama models available locally and their tool-calling support status.
+
+```bash
+mcp-setu models
+```
+
+**Output Example:**
+
+```
+┌─────────────────────┬────────┬────────────────┐
+│ Model               │ Size   │ Tool Support   │
+├─────────────────────┼────────┼────────────────┤
+│ gemma4:e4b          │ 4 GB   │ ✓ Yes          │
+│ qwen2.5:7b          │ 6 GB   │ ✓ Yes          │
+│ llama3.2:3b         │ 2 GB   │ ✓ Yes          │
+│ mistral-nemo:12b    │ 9 GB   │ ✓ Yes          │
+│ llama2:7b           │ 4 GB   │ ✗ No           │
+└─────────────────────┴────────┴────────────────┘
+```
+
+**Flags:**
+
+```
+--config string    Path to config file (default: mcp.json)
+```
+
+### validate
+
+Validate your `mcp.json` config file and test connectivity to Ollama and MCP servers.
+
+```bash
+mcp-setu validate
+```
+
+**What it checks:**
+
+1. Config file syntax is valid JSON
+2. Ollama is reachable
+3. Specified model exists and supports tool calling
+4. All configured MCP servers can start
+5. Each server provides at least one tool
+
+**Output Example (Success):**
+
+```
+✓ Config file valid
+✓ Model gemma4:e4b found and supports tool calling
+✓ MCP server "filesystem" connected with 3 tools
+✓ MCP server "memory" connected with 2 tools
+✓ All validations passed!
+```
+
+**Output Example (Failure):**
+
+```
+✗ Model llama2:7b does not support tool calling
+Supported models:
+  ✓ gemma4:e4b
+  ✓ qwen2.5:7b
+  ...
+```
+
+**Flags:**
+
+```
+--config string    Path to config file (default: mcp.json)
+```
+
+### version
+
+Show version information.
+
+```bash
+mcp-setu version
+```
+
+**Output Example:**
+
+```
+mcp-setu version v0.1.0
+commit: abc1234567890def
+build date: 2025-05-10T12:00:00Z
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error (validation failed, connection error, etc.) |
+
+## Configuration
+
+All commands respect the `--config` flag. By default, they look for `mcp.json` in the current directory.
+
+**Precedence:**
+
+1. `--config` flag (highest priority)
+2. `mcp.json` in current directory
+3. Default config if none found
+
+## Flags Summary
+
+| Flag | Type | Default | Usage |
+|------|------|---------|-------|
+| `--config` | string | `mcp.json` | Path to config file |
+| `--verbose` | boolean | `false` | Enable debug output |
+| `--model` | string | (config) | Override model (chat only) |
+| `--system` | string | (config) | Override system prompt (chat only) |
+
+## Examples
+
+### Quick Examples
+
+```bash
+# Start interactive chat
+mcp-setu chat
+
+# See what tools are available
+mcp-setu tools
+
+# Check setup is working
+mcp-setu validate
+
+# Show version
+mcp-setu version
+
+# Use custom config
+mcp-setu --config ~/my-mcp.json chat
+
+# Enable debugging
+mcp-setu --verbose chat
+
+# Switch model
+mcp-setu chat --model llama3.3:70b
+
+# Custom system prompt
+mcp-setu chat --system "You are a Rust expert"
+
+# Everything together
+mcp-setu --config ~/my-mcp.json --verbose chat --model qwen2.5:7b
+```
+
+### Real-World Workflows
+
+```bash
+# Before doing real work, validate
+mcp-setu validate
+
+# Start debugging
+mcp-setu --verbose chat
+
+# In chat, check what's available
+/tools
+/servers
+
+# Switch to a better model for the task
+/model llama3.3:70b
+
+# Performance monitoring
+/stats
+```
+
+## Tips & Tricks
+
+1. **Quick tool check** — `mcp-setu tools` without starting interactive chat
+2. **Model discovery** — `mcp-setu models` to see what's available
+3. **Config testing** — `mcp-setu validate` before major work
+4. **Verbose debugging** — Add `--verbose` when things break
+5. **Quick help** — `mcp-setu <command> --help`
+
+## Environment Variables
+
+These are used by MCP servers configured in `mcp.json`:
+
+```bash
+# Example: Bearer token for remote MCP server
+export MCP_API_TOKEN="sk-..."
+
+# OAuth credentials
+export MCP_AUTH_SERVER="https://auth.example.com"
+export MCP_CLIENT_ID="client-id"
+export MCP_CLIENT_SECRET="secret"
+```
+
+See [Configuration](../configuration.md#authentication) for more auth examples.
+
+## Next Steps
+
+- **[Getting Started](../getting-started.md)** — Tutorial
+- **[Configuration](../configuration.md)** — Config reference
+- **[Examples](../examples.md)** — Usage patterns
+- **[Troubleshooting](../troubleshooting.md)** — Common issues

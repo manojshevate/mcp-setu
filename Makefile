@@ -1,26 +1,41 @@
-.PHONY: help build run install clean lint test vet coverage
+.PHONY: help build run install clean lint test vet coverage docs-dev docs-build docs-preview docs-generate
 
 help:
 	@echo "mcp-setu - MCP Bridge for Ollama"
 	@echo ""
-	@echo "Available targets:"
+	@echo "Build targets:"
 	@echo "  make build       - Build the mcp-setu binary"
 	@echo "  make install     - Install mcp-setu to GOPATH/bin"
 	@echo "  make run         - Run mcp-setu in interactive chat mode"
 	@echo "  make run-tools   - List all available tools"
 	@echo "  make run-models  - List available Ollama models"
 	@echo "  make run-validate - Validate config and test connectivity"
+	@echo ""
+	@echo "Test targets:"
 	@echo "  make test        - Run all unit tests"
 	@echo "  make test-v      - Run tests with verbose output"
 	@echo "  make coverage    - Run tests with coverage report"
 	@echo "  make vet         - Run go vet checks"
 	@echo "  make lint        - Run golangci-lint (requires installation)"
+	@echo ""
+	@echo "Documentation targets:"
+	@echo "  make docs-dev    - Run docs dev server (http://localhost:5173)"
+	@echo "  make docs-build  - Build docs for production"
+	@echo "  make docs-preview - Preview built docs locally"
+	@echo "  make docs-generate - Generate CLI reference docs"
+	@echo ""
+	@echo "Other targets:"
 	@echo "  make clean       - Remove built binaries"
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make install"
 	@echo "  2. ollama pull gemma4:e4b"
 	@echo "  3. mcp-setu chat"
+	@echo ""
+	@echo "Documentation quick start:"
+	@echo "  1. npm install (first time only)"
+	@echo "  2. make docs-dev"
+	@echo "  3. Open http://localhost:5173"
 
 VERSION ?= v0.1.0-dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -98,3 +113,19 @@ deps:
 	@go mod download
 	@go mod tidy
 	@echo "Dependencies updated"
+
+docs-dev:
+	@echo "Starting docs dev server..."
+	@npm run docs:dev
+
+docs-build:
+	@echo "Building docs..."
+	@npm run docs:prepare
+
+docs-preview:
+	@echo "Previewing built docs..."
+	@npm run docs:preview
+
+docs-generate:
+	@echo "Generating CLI reference docs..."
+	@npm run docs:generate-cli

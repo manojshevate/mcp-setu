@@ -1,0 +1,16 @@
+{
+  "name": "mcp-setu-docs",
+  "version": "0.1.0",
+  "description": "Documentation site for mcp-setu, an MCP bridge for Ollama",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:generate-cli": "go run ./internal/tools/docgen",
+    "docs:prepare": "npm run docs:generate-cli && npm run docs:build"
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.0",
+    "vue": "^3.3.0"
+  }
+}
