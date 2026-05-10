@@ -21,8 +21,8 @@ type OllamaClient interface {
 // MCPClient defines the interface for MCP server interactions.
 type MCPClient interface {
 	GetAllTools() map[string]string
-	GetServer(name string) *mcp.Client
-	GetServerForTool(toolName string) *mcp.Client
+	GetServer(name string) mcp.MCPClientInterface
+	GetServerForTool(toolName string) mcp.MCPClientInterface
 	CallTool(ctx context.Context, toolName string, arguments map[string]any) (string, error)
 	GetAllServerNames() []string
 	CloseAll() error

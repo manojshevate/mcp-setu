@@ -15,6 +15,13 @@ import (
 	"github.com/manojshevate/mcp-setu/internal/config"
 )
 
+// MCPClientInterface defines the methods all MCP client implementations must support.
+type MCPClientInterface interface {
+	GetTools() map[string]*Tool
+	CallTool(ctx context.Context, name string, arguments map[string]any) (string, error)
+	Close() error
+}
+
 // Client manages a connection to a single MCP server via stdio.
 type Client struct {
 	name    string
@@ -27,9 +34,47 @@ type Client struct {
 	nextID  int
 }
 
-// NewClient creates a new MCP client and spawns the server process.
+// NewClient creates a new MCP client based on the transport type.
+// Supports: stdio (default), http-streamable, and http-sse transports.
+// Automatically configures authentication based on the auth config.
+func NewClient(ctx context.Context, name string, cfg config.ServerConfig) (MCPClientInterface, error) {
+	// Determine transport type (default to stdio)
+	transportType := cfg.Type
+	if transportType == "" {
+		transportType = "stdio"
+	}
+
+	// Create token provider for HTTP transports
+	var tokenProvider TokenProvider
+	var err error
+	if cfg.Auth != nil && (transportType == "http-streamable" || transportType == "http-sse") {
+		tokenProvider, err = NewTokenProvider(cfg.Auth)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create token provider: %w", err)
+		}
+	}
+
+	switch transportType {
+	case "stdio":
+		return NewStdioClient(ctx, name, cfg)
+	case "http-streamable":
+		if cfg.URL == "" {
+			return nil, fmt.Errorf("http-streamable transport requires 'url' field")
+		}
+		return NewHTTPStreamableClient(ctx, name, cfg.URL, tokenProvider)
+	case "http-sse":
+		if cfg.URL == "" {
+			return nil, fmt.Errorf("http-sse transport requires 'url' field")
+		}
+		return NewHTTPSSEClient(ctx, name, cfg.URL, tokenProvider)
+	default:
+		return nil, fmt.Errorf("unknown transport type: %q", transportType)
+	}
+}
+
+// NewStdioClient creates a new stdio-based MCP client and spawns the server process.
 // It validates the command path to prevent command injection vulnerabilities.
-func NewClient(ctx context.Context, name string, cfg config.ServerConfig) (*Client, error) {
+func NewStdioClient(ctx context.Context, name string, cfg config.ServerConfig) (*Client, error) {
 	// Validate command: must be absolute path or a standard executable in PATH.
 	if err := validateCommand(cfg.Command); err != nil {
 		return nil, fmt.Errorf("invalid command for server %q: %w", name, err)
@@ -78,7 +123,7 @@ func NewClient(ctx context.Context, name string, cfg config.ServerConfig) (*Clie
 // initialize sends the initialize request and processes the response.
 func (c *Client) initialize(ctx context.Context) error {
 	initReq := InitializeRequest{
-		ProtocolVersion: "2024-11-05",
+		ProtocolVersion: "2025-05-01", // Latest MCP spec version
 		Capabilities: map[string]any{
 			"tools": map[string]any{},
 		},
@@ -300,7 +345,7 @@ func envMapToSlice(m map[string]string) []string {
 
 // MultiClient manages multiple MCP server connections.
 type MultiClient struct {
-	clients map[string]*Client
+	clients map[string]MCPClientInterface
 	tools   map[string]string // tool name -> server name
 	mu      sync.Mutex
 }
@@ -308,13 +353,13 @@ type MultiClient struct {
 // NewMultiClient creates a new multi-client manager.
 func NewMultiClient() *MultiClient {
 	return &MultiClient{
-		clients: make(map[string]*Client),
+		clients: make(map[string]MCPClientInterface),
 		tools:   make(map[string]string),
 	}
 }
 
 // Add adds a new server connection.
-func (mc *MultiClient) Add(name string, client *Client) {
+func (mc *MultiClient) Add(name string, client MCPClientInterface) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.clients[name] = client
@@ -324,14 +369,14 @@ func (mc *MultiClient) Add(name string, client *Client) {
 }
 
 // GetServer returns the client for a given server name.
-func (mc *MultiClient) GetServer(name string) *Client {
+func (mc *MultiClient) GetServer(name string) MCPClientInterface {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	return mc.clients[name]
 }
 
 // GetServerForTool returns the client for the server that owns a given tool.
-func (mc *MultiClient) GetServerForTool(toolName string) *Client {
+func (mc *MultiClient) GetServerForTool(toolName string) MCPClientInterface {
 	mc.mu.Lock()
 	serverName := mc.tools[toolName]
 	mc.mu.Unlock()

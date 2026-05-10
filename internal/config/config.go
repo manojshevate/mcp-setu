@@ -32,10 +32,40 @@ type OllamaConfig struct {
 }
 
 // ServerConfig represents the configuration for a single MCP server.
+// Supports multiple transport types: stdio (default), http-streamable, and http-sse.
 type ServerConfig struct {
-	Command string            `json:"command"`
-	Args    []string          `json:"args"`
+	// Transport type: "stdio" (default), "http-streamable", or "http-sse"
+	Type string `json:"type,omitempty"`
+
+	// Stdio transport fields
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+
+	// HTTP transport fields
+	URL string `json:"url,omitempty"`
+
+	// Authentication configuration (optional)
+	Auth *AuthConfig `json:"auth,omitempty"`
+}
+
+// AuthConfig represents authentication configuration for MCP servers.
+type AuthConfig struct {
+	// Auth type: "none" (default), "oauth2", "bearer-token", or "env"
+	Type string `json:"type,omitempty"`
+
+	// OAuth 2.1 configuration
+	AuthorizationServerURL string   `json:"authorizationServerUrl,omitempty"`
+	ClientID               string   `json:"clientId,omitempty"`
+	ClientSecret           string   `json:"clientSecret,omitempty"` // Should be retrieved from secure storage in production
+	Scopes                 []string `json:"scopes,omitempty"`       // OAuth scopes to request
+
+	// Bearer token (for simple token-based auth)
+	Token string `json:"token,omitempty"` // Should be retrieved from secure storage
+
+	// Environment variable names for auth
+	TokenEnvVar               string `json:"tokenEnvVar,omitempty"`               // Env var containing bearer token
+	AuthorizationServerEnvVar string `json:"authorizationServerEnvVar,omitempty"` // Env var for auth server URL
 }
 
 // Load reads and validates the configuration from a file.

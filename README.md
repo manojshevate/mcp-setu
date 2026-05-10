@@ -162,7 +162,9 @@ mcp-setu reads its configuration from `mcp.json` by default. Use `--config <path
 
 **Other server examples:**
 
-You can customize `mcp.json` to add more servers. Common examples:
+You can customize `mcp.json` to add more servers. mcpgo supports multiple transport types:
+
+**Stdio Transport (Default - Local Subprocess):**
 
 ```json
 {
@@ -185,6 +187,32 @@ You can customize `mcp.json` to add more servers. Common examples:
 }
 ```
 
+**HTTP Streamable Transport (Remote Servers - Modern Standard):**
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "type": "http-streamable",
+      "url": "http://your-mcp-server.com/mcp"
+    }
+  }
+}
+```
+
+**HTTP/SSE Transport (Legacy - Deprecated but Still Supported):**
+
+```json
+{
+  "mcpServers": {
+    "legacy-server": {
+      "type": "http-sse",
+      "url": "http://legacy-mcp-server.com/events"
+    }
+  }
+}
+```
+
 **Field descriptions:**
 
 - **ollama.baseUrl** — Ollama HTTP endpoint (default: `http://localhost:11434`)
@@ -192,10 +220,21 @@ You can customize `mcp.json` to add more servers. Common examples:
 - **ollama.systemPrompt** — System prompt sent with every request (default: generic assistant prompt)
 - **ollama.temperature** — Sampling temperature 0–1 (default: `0.7`)
 - **ollama.contextLength** — Max context window size in tokens (default: `4096`)
-- **mcpServers** — Map of MCP server configs (byte-for-byte compatible with Claude Desktop)
-  - **command** — Executable to run
-  - **args** — Arguments to pass
-  - **env** — Optional environment variables
+- **mcpServers** — Map of MCP server configs (base format compatible with Claude Desktop)
+  - **type** — Transport type: `"stdio"` (default), `"http-streamable"` (modern), or `"http-sse"` (legacy/deprecated)
+  - **command** — Executable to run (stdio transport only)
+  - **args** — Arguments to pass (stdio transport only)
+  - **env** — Optional environment variables (stdio transport only)
+  - **url** — Server URL (http-streamable and http-sse transports only)
+  - **auth** — Optional authentication configuration (see [MCP Authentication](#mcp-authentication--authorization))
+    - **type** — Auth type: `"none"` (default), `"bearer-token"`, `"oauth2"`, or `"env"`
+    - **token** — Static bearer token (bearer-token type)
+    - **tokenEnvVar** — Environment variable containing bearer token
+    - **authorizationServerUrl** — OAuth 2.1 authorization server URL (oauth2 type)
+    - **authorizationServerEnvVar** — Env var containing auth server URL (oauth2 type)
+    - **clientId** — OAuth 2.1 client ID (oauth2 type)
+    - **clientSecret** — OAuth 2.1 client secret (oauth2 type)
+    - **scopes** — OAuth 2.1 scopes to request (oauth2 type)
 
 ## Supported Models
 
@@ -342,6 +381,288 @@ Assistant response
 5. **REPL** — Interactive prompt, special commands, graceful shutdown
 
 Each layer is independent and testable. No global state; all dependencies are passed explicitly.
+
+## MCP Transport Mechanisms
+
+mcpgo supports all three MCP transport mechanisms for maximum flexibility:
+
+### Transport Types Supported
+
+1. **Stdio (JSON-RPC 2.0)** ✅ Default
+   - MCP servers spawned as subprocesses
+   - Communication via stdin/stdout
+   - No network overhead, ideal for local servers
+   - Supports Claude Desktop `mcp.json` format directly
+   - Best for: Local Node.js servers, development, and reliable connections
+
+2. **HTTP Streamable** ✅ Modern Standard
+   - HTTP POST requests with streaming response support
+   - Ideal for remote MCP servers
+   - Built-in connection resumption via Last-Event-ID headers
+   - Best for: Cloud-hosted servers, remote integrations, load balancing
+
+3. **HTTP/SSE** ✅ Legacy (Deprecated but Supported)
+   - Server-Sent Events for streaming responses
+   - Deprecated in favor of HTTP Streamable
+   - Still widely used by existing servers
+   - Best for: Legacy server compatibility, gradual migration paths
+
+### Configuration Examples
+
+**Default Stdio Transport:**
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}
+```
+
+**HTTP Streamable (Modern):**
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "type": "http-streamable",
+      "url": "http://your-mcp-server.com/mcp"
+    }
+  }
+}
+```
+
+**HTTP/SSE (Legacy):**
+```json
+{
+  "mcpServers": {
+    "legacy-server": {
+      "type": "http-sse",
+      "url": "http://legacy-mcp-server.com/events"
+    }
+  }
+}
+```
+
+### Transport Selection Guide
+
+| Use Case | Transport | Why |
+|----------|-----------|-----|
+| Local Node.js servers | Stdio | Simple, reliable, no network overhead |
+| Cloud-hosted servers | HTTP Streamable | Modern standard, built for remote use |
+| Legacy servers (pre-SSE deprecation) | HTTP/SSE | Compatibility with existing deployments |
+| Mixed environments | Multiple in same config | Mix stdio, HTTP Streamable, and HTTP/SSE as needed |
+
+### MCP Standard Reference
+
+For more information, see the [MCP specification on transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
+
+> **Note**: HTTP/SSE is deprecated in the MCP standard in favor of HTTP Streamable, but mcpgo continues to support it for compatibility with existing servers.
+
+## MCP Authentication & Authorization
+
+mcpgo implements the MCP authorization specification for protecting remote MCP servers. This follows OAuth 2.1 standards with PKCE, Protected Resource Metadata discovery, and scope-based access control.
+
+### Supported Authentication Methods
+
+**For HTTP-based transports** (HTTP Streamable and HTTP/SSE):
+- ✅ **Bearer Token** — Simple static token auth (suitable for API tokens)
+- ✅ **OAuth 2.1** — Full OAuth 2.1 flow with PKCE, scope challenges, and token refresh
+- ✅ **Environment Variables** — Tokens read from environment vars for secure credential handling
+
+**For Stdio transport:**
+- ✅ **Environment Variables Only** — Per MCP spec, stdio should not use OAuth; credentials come from env vars
+
+### Authentication Configuration
+
+#### 1. No Authentication (Default)
+
+```json
+{
+  "mcpServers": {
+    "local-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
+```
+
+#### 2. Bearer Token Authentication
+
+```json
+{
+  "mcpServers": {
+    "protected-api": {
+      "type": "http-streamable",
+      "url": "https://api.example.com/mcp",
+      "auth": {
+        "type": "bearer-token",
+        "token": "your-api-token-here"
+      }
+    }
+  }
+}
+```
+
+**Better practice** — Store token in environment variable:
+
+```json
+{
+  "mcpServers": {
+    "protected-api": {
+      "type": "http-streamable",
+      "url": "https://api.example.com/mcp",
+      "auth": {
+        "type": "bearer-token",
+        "tokenEnvVar": "MCP_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+Then set the environment variable before running:
+```bash
+export MCP_API_TOKEN="your-api-token"
+mcpgo chat
+```
+
+#### 3. OAuth 2.1 Authorization
+
+For protected MCP servers with OAuth 2.1:
+
+```json
+{
+  "mcpServers": {
+    "oauth-protected": {
+      "type": "http-streamable",
+      "url": "https://api.example.com/mcp",
+      "auth": {
+        "type": "oauth2",
+        "authorizationServerUrl": "https://auth.example.com",
+        "clientId": "your-client-id",
+        "clientSecret": "your-client-secret",
+        "scopes": ["mcp:read", "mcp:write"]
+      }
+    }
+  }
+}
+```
+
+Or use environment variables for credentials (recommended for production):
+
+```json
+{
+  "mcpServers": {
+    "oauth-protected": {
+      "type": "http-streamable",
+      "url": "https://api.example.com/mcp",
+      "auth": {
+        "type": "oauth2",
+        "authorizationServerEnvVar": "MCP_AUTH_SERVER",
+        "scopes": ["mcp:read", "mcp:write"]
+      }
+    }
+  }
+}
+```
+
+#### 4. Environment Variable Token (Stdio)
+
+For stdio-based servers, use environment variables:
+
+```json
+{
+  "mcpServers": {
+    "secure-local": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-custom"],
+      "auth": {
+        "type": "env",
+        "tokenEnvVar": "MCP_LOCAL_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### How MCP Authorization Works
+
+1. **401 Unauthorized Responses**: When an MCP server returns HTTP 401, mcpgo parses the `WWW-Authenticate` header to discover:
+   - Resource metadata URL (where to find scope requirements)
+   - Required scopes for the resource
+   - Authorization server location
+
+2. **Protected Resource Metadata** (RFC 9728): MCP servers advertise their authorization requirements via:
+   - WWW-Authenticate header with `resource_metadata` parameter
+   - Well-known URIs: `/.well-known/oauth-protected-resource` or `/.well-known/oauth-protected-resource/{path}`
+
+3. **Bearer Tokens** (RFC 6750): Valid tokens are sent in the Authorization header:
+   ```
+   Authorization: Bearer <access-token>
+   ```
+
+4. **Scope Challenges** (Step-Up Authorization): When a token lacks required scopes, the server returns HTTP 403 with:
+   ```
+   WWW-Authenticate: Bearer error="insufficient_scope", scope="required:scope1 required:scope2"
+   ```
+
+5. **Resource Indicators** (RFC 8707): OAuth requests include the target resource:
+   ```
+   resource=https://api.example.com/mcp
+   ```
+
+### Security Best Practices
+
+✅ **DO:**
+- Store sensitive credentials (tokens, secrets) in environment variables
+- Use HTTPS/TLS for all HTTP-based MCP servers
+- Use Bearer tokens for stateless, simple authentication
+- Use OAuth 2.1 for dynamic, revocable access with scopes
+- Keep tokens short-lived (authorization servers SHOULD issue short-lived access tokens)
+- Validate HTTPS certificates and use strong TLS versions
+
+❌ **DON'T:**
+- Store secrets in `mcp.json` config files
+- Use unencrypted HTTP for authentication
+- Pass tokens in query strings (only use Authorization headers)
+- Reuse tokens across different MCP servers
+- Cache long-lived tokens without refresh mechanisms
+
+### Environment Variables for Authentication
+
+Common environment variable patterns:
+
+```bash
+# Bearer tokens
+export MCP_API_TOKEN="sk-..."                    # Static API token
+export MCP_CUSTOM_TOKEN="token-..."              # Custom token for specific server
+
+# OAuth 2.1
+export MCP_AUTH_SERVER="https://auth.example.com"
+export MCP_CLIENT_ID="client-id"
+export MCP_CLIENT_SECRET="secret"                # Only in secure environments
+
+# Multiple servers
+export MCP_SERVER_1_TOKEN="token-1"
+export MCP_SERVER_2_TOKEN="token-2"
+```
+
+### Authentication Standard Reference
+
+mcpgo implements the MCP Authorization specification:
+- [MCP Authorization & Authorization Specification](https://modelcontextprotocol.io/specification/draft/basic/authorization)
+- [OAuth 2.1 (IETF Draft)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13)
+- [PKCE (RFC 7636)](https://datatracker.ietf.org/doc/html/rfc7636)
+- [Protected Resource Metadata (RFC 9728)](https://datatracker.ietf.org/doc/html/rfc9728)
+- [Resource Indicators (RFC 8707)](https://www.rfc-editor.org/rfc/rfc8707.html)
+- [Bearer Token Usage (RFC 6750)](https://datatracker.ietf.org/doc/html/rfc6750)
+
+> **Note**: Authorization is **OPTIONAL** in MCP. Public servers don't require authentication, while private servers may enforce OAuth 2.1, bearer tokens, or other mechanisms.
 
 ## Troubleshooting
 

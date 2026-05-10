@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/manojshevate/mcp-setu/internal/mcp"
+	"github.com/manojshevate/mcpgo/internal/mcp"
 )
 
 // Printer handles all terminal output formatting.
@@ -33,28 +33,48 @@ var (
 
 // PrintBanner prints the startup banner with info table.
 func (p *Printer) PrintBanner(model, configPath string, serverCount, toolCount int) {
-	// Title banner
-	titleStyle := lipgloss.NewStyle().
-		Foreground(colorPrimary).
-		Bold(true).
-		MarginBottom(1)
-
-	// Status section with better visual hierarchy
-	statusStyle := lipgloss.NewStyle().Padding(0, 2)
-	status := fmt.Sprintf(
-		"Model       %s\nConfig      %s\nServers     %d connected\nTools       %d available",
-		model, configPath, serverCount, toolCount,
+	// Left side: welcome section
+	welcome := fmt.Sprintf(
+		"Welcome to setu!\n\nModel       %s\nServers     %d connected\nConfig      %s",
+		model,
+		serverCount,
+		configPath,
 	)
 
-	// Build visual banner with dynamic divider width
-	dividerStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	title := "mcp-setu — MCP Bridge for Ollama"
-	dividerWidth := lipgloss.Width(title)
-	divider := strings.Repeat("━", dividerWidth)
+	// Right side: chat shortcuts
+	shortcuts := fmt.Sprintf(
+		`Chat shortcuts
 
-	fmt.Fprintf(os.Stdout, "%s\n", titleStyle.Render(title))
-	fmt.Fprintf(os.Stdout, "%s\n\n", dividerStyle.Render(divider))
-	fmt.Fprintf(os.Stdout, "%s\n\n", statusStyle.Render(status))
+/tools        List available tools
+/servers      Show connected servers
+/model [name] Switch model
+/stats        View performance stats
+/help         Show all commands
+/clear        Clear conversation
+
+%d tools available  |  Ready to chat!`,
+		toolCount,
+	)
+
+	// Create styled boxes
+	leftBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorPrimary).
+		Foreground(colorPrimary).
+		Padding(1, 2).
+		Render(welcome)
+
+	rightBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorPrimary).
+		Foreground(colorPrimary).
+		Padding(1, 2).
+		Render(shortcuts)
+
+	// Combine horizontally
+	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox)
+
+	fmt.Fprintf(os.Stdout, "%s\n\n", combined)
 }
 
 // ServerInfo holds info about a server.
@@ -68,20 +88,20 @@ func (p *Printer) PrintServerTable(servers []ServerInfo) {
 	headerStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	borderStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("┌────────────────────┬──────────┬─────────────────┐"))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("┌──────────────────┬─────────┬──────────────┐"))
 	fmt.Fprintf(os.Stdout, "│ %s │ %s │ %s │\n",
-		headerStyle.Render("Server              "),
-		headerStyle.Render("Status    "),
-		headerStyle.Render("Tools          "))
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├────────────────────┼──────────┼─────────────────┤"))
+		headerStyle.Render("Server            "),
+		headerStyle.Render("Status "),
+		headerStyle.Render("Tools       "))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├──────────────────┼─────────┼──────────────┤"))
 
 	for _, s := range servers {
 		checkmark := lipgloss.NewStyle().Foreground(colorSuccess).Render("✓")
 		toolStr := fmt.Sprintf("%d tools", s.Tools)
-		fmt.Fprintf(os.Stdout, "│ %-18s │ %s ready │ %-15s │\n", s.Name, checkmark, toolStr)
+		fmt.Fprintf(os.Stdout, "│ %-16s │ %s ready │ %-12s │\n", s.Name, checkmark, toolStr)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└────────────────────┴──────────┴─────────────────┘"))
+	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└──────────────────┴─────────┴──────────────┘"))
 }
 
 // ToolInfo holds info about a tool.
@@ -168,7 +188,7 @@ func (p *Printer) PrintAssistantResponse(content string) {
 	borderStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 
 	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┃"))
-	fmt.Fprintf(os.Stdout, "%s %s\n", labelStyle.Render("assistant"), content)
+	fmt.Fprintf(os.Stdout, "%s %s\n", labelStyle.Render("setu: "), content)
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("┃"))
 }
 
@@ -178,9 +198,9 @@ func (p *Printer) PrintLLMProcessing(iterationNum int) {
 		return
 	}
 	if iterationNum == 1 {
-		fmt.Fprintf(os.Stderr, "%s  %s  Processing message with LLM...\n", "💭", "llm")
+		fmt.Fprintf(os.Stderr, "%s  %s  Processing message...\n", "💭", "llm")
 	} else {
-		fmt.Fprintf(os.Stderr, "%s  %s  Processing again (iteration %d) with LLM...\n", "💭", "llm", iterationNum)
+		fmt.Fprintf(os.Stderr, "%s  %s  Processing again (iteration %d)...\n", "💭", "llm", iterationNum)
 	}
 }
 
@@ -230,10 +250,10 @@ func (p *Printer) PrintError(msg string) {
 		}
 	}
 	if strings.Contains(lower, "tool") || strings.Contains(lower, "support") {
-		fmt.Fprintf(os.Stderr, "→ See supported models: %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcp-setu models"))
+		fmt.Fprintf(os.Stderr, "→ See supported models: %s\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcpgo models"))
 	}
 	if strings.Contains(lower, "config") || strings.Contains(lower, "mcp.json") {
-		fmt.Fprintf(os.Stderr, "→ Run: %s to check your config\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcp-setu validate"))
+		fmt.Fprintf(os.Stderr, "→ Run: %s to check your config\n", lipgloss.NewStyle().Foreground(colorMuted).Render("mcpgo validate"))
 	}
 }
 
@@ -269,7 +289,7 @@ func (p *Printer) PrintHelp() {
 		{"/stats", "Show performance stats"},
 		{"/servers", "Show connected MCP servers"},
 		{"/help", "Show this help"},
-		{"exit / quit", "Quit mcp-setu"},
+		{"exit / quit", "Quit mcpgo"},
 	}
 
 	for _, c := range commands {
@@ -281,10 +301,10 @@ func (p *Printer) PrintHelp() {
 
 // StatsInfo holds performance metrics for display.
 type StatsInfo struct {
-	MessageCount    int
-	ToolCallCount   int
-	TotalDuration   time.Duration
-	IterationCount  int
+	MessageCount     int
+	ToolCallCount    int
+	TotalDuration    time.Duration
+	IterationCount   int
 	LastResponseTime time.Duration
 	AverageLoopTime  time.Duration
 }
