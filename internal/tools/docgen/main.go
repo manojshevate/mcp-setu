@@ -1,18 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/manojshevate/mcp-setu/internal/bridge"
-	"github.com/manojshevate/mcp-setu/internal/config"
-	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 	"github.com/manojshevate/mcp-setu/internal/ui"
 	"github.com/manojshevate/mcp-setu/internal/version"
