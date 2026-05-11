@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "mcp-setu-docs",
   "version": "0.1.0",
   "description": "Documentation site for mcp-setu, an MCP bridge for Ollama",
