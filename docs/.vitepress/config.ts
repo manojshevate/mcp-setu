@@ -5,9 +5,16 @@ export default defineConfig({
   description: 'MCP Bridge for Ollama - Interactive tool-calling chats with local language models',
   base: '/mcp-setu/',
   cleanUrls: true,
+  head: [
+    ['link', { rel: 'icon', href: '/mcp-setu/favicon.svg' }],
+  ],
 
   themeConfig: {
     logo: '/logo.svg',
+
+    search: {
+      provider: 'local',
+    },
 
     nav: [
       { text: 'Guide', link: '/getting-started' },
@@ -53,7 +60,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under MIT License',
-      copyright: 'Copyright © 2025 mcp-setu contributors',
+      copyright: 'Copyright © 2026 mcp-setu contributors',
     },
   },
 

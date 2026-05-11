@@ -17,7 +17,7 @@ The config has two main sections:
   "ollama": {
     "baseUrl": "http://localhost:11434",
     "model": "gemma4:e4b",
-    "systemPrompt": "You are a helpful assistant.",
+    "systemPrompt": "You are setu, a helpful AI assistant powered by MCP.",
     "temperature": 0.7,
     "contextLength": 4096
   },
@@ -36,7 +36,7 @@ The config has two main sections:
 |-------|------|---------|-------------|
 | `baseUrl` | string | `http://localhost:11434` | Ollama API endpoint |
 | `model` | string | `gemma4:e4b` | Model to use (must support tool calling) |
-| `systemPrompt` | string | `"You are a helpful assistant."` | System prompt sent with every message |
+| `systemPrompt` | string | `"You are setu, a helpful AI assistant powered by MCP."` | System prompt sent with every message |
 | `temperature` | number | `0.7` | Sampling temperature (0–1) |
 | `contextLength` | number | `4096` | Max context window in tokens |
 
@@ -245,7 +245,7 @@ The only difference is the `ollama` block, which is mcp-setu-specific.
   "ollama": {
     "baseUrl": "http://localhost:11434",
     "model": "qwen2.5:7b",
-    "systemPrompt": "You are a Python expert assistant.",
+    "systemPrompt": "You are setu, a Python expert assistant powered by MCP.",
     "temperature": 0.5,
     "contextLength": 8192
   },

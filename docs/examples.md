@@ -12,7 +12,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "gemma4:e4b",
-    "systemPrompt": "You are a code review expert. Use the filesystem to analyze and review code."
+    "systemPrompt": "You are setu, a code review expert. Use the filesystem to analyze and review code."
   },
   "mcpServers": {
     "filesystem": {
@@ -35,7 +35,7 @@ mcp-setu chat
 ⚙ filesystem › read_file {"path": "main.go"}
 ↳ read_file [file content...]
 
-assistant: I've reviewed main.go. Here are the suggestions:
+setu: I've reviewed main.go. Here are the suggestions:
 1. Extract config loading into a separate function
 2. Add error context wrapping
 3. Consider using sync.Once for singleton instances
@@ -51,7 +51,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "qwen2.5:7b",
-    "systemPrompt": "You are a data analyst. Use SQLite to query the database."
+    "systemPrompt": "You are setu, a data analyst. Use SQLite to query the database."
   },
   "mcpServers": {
     "sqlite": {
@@ -73,7 +73,7 @@ mcp-setu chat
 ⚙ sqlite › query {"sql": "SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-7 days')"}
 ↳ query [{"COUNT(*)": 42}]
 
-assistant: There were 42 new user registrations in the last 7 days. This is up from 38 last week.
+setu: There were 42 new user registrations in the last 7 days. This is up from 38 last week.
 ```
 
 ## Example 3: Context Storage with Memory Server
@@ -85,7 +85,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "gemma4:e4b",
-    "systemPrompt": "You are a helpful assistant. Use memory to maintain context."
+    "systemPrompt": "You are setu, a helpful assistant. Use memory to maintain context."
   },
   "mcpServers": {
     "memory": {
@@ -118,7 +118,7 @@ mcp-setu chat
 ⚙ memory › get_context {}
 ↳ get_context [{"key": "project", "value": "Go CLI tool"}]
 
-assistant: Your project is a Go CLI tool.
+setu: Your project is a Go CLI tool.
 ```
 
 ## Example 4: Using Claude Desktop Config
@@ -161,7 +161,7 @@ Tool result:
   ]
 }
 
-assistant: Here are the files in the current directory:
+setu: Here are the files in the current directory:
 - main.go (2 KB)
 - config.json (512 B)
 - README.md (4 KB)
@@ -229,7 +229,7 @@ Use multiple MCP servers together:
 ⚙ memory › set_context {"key": "db_path", "value": "./data.db"}
 ↳ set_context [success]
 
-assistant: I've read your config and saved the database path to memory.
+setu: I've read your config and saved the database path to memory.
 
 ❯ how many records are in the main table?
 
@@ -239,7 +239,7 @@ assistant: I've read your config and saved the database path to memory.
 ⚙ sqlite › query {"sql": "SELECT COUNT(*) as count FROM main"}
 ↳ query [{"count": 1523}]
 
-assistant: There are 1,523 records in the main table.
+setu: There are 1,523 records in the main table.
 ```
 
 ## Example 8: Performance Monitoring
