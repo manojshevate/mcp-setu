@@ -12,7 +12,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "gemma4:e4b",
-    "systemPrompt": "You are setu, a code review expert. Use the filesystem to analyze and review code."
+    "systemPrompt": "You are an expert code reviewer. Analyze code structure, performance, security, and best practices. Use the filesystem to read and examine files. Provide actionable feedback and suggestions for improvement."
   },
   "mcpServers": {
     "filesystem": {
@@ -51,7 +51,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "qwen2.5:7b",
-    "systemPrompt": "You are setu, a data analyst. Use SQLite to query the database."
+    "systemPrompt": "You are a skilled data analyst. Query databases to find insights, trends, and answers. Use SQLite tools to retrieve and analyze data. Present findings clearly with context and business implications."
   },
   "mcpServers": {
     "sqlite": {
@@ -85,7 +85,7 @@ cat > mcp.json << 'EOF'
 {
   "ollama": {
     "model": "gemma4:e4b",
-    "systemPrompt": "You are setu, a helpful assistant. Use memory to maintain context."
+    "systemPrompt": "You are a helpful assistant with persistent memory across sessions. Use the memory tool to save important context and retrieve previous information. Maintain continuity and remember user preferences and project details."
   },
   "mcpServers": {
     "memory": {
