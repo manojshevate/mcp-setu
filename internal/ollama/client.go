@@ -79,6 +79,7 @@ type StreamEvent struct {
 	Content   string
 	ToolCalls []ToolCall
 	Done      bool
+	Err       error
 }
 
 // ChatStream sends a streaming chat request to Ollama and returns a channel yielding response events.
@@ -123,16 +124,35 @@ func (c *Client) ChatStream(ctx context.Context, model string, messages []Messag
 		defer resp.Body.Close()
 		defer close(events)
 
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
+		// Use bufio.Reader with ReadBytes to avoid 64KiB scanner buffer limit
+		// that can silently truncate large tool_calls or metadata
+		reader := bufio.NewReader(resp.Body)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil && err != io.EOF {
+				// Send error via event
+				select {
+				case events <- StreamEvent{Err: fmt.Errorf("failed to read stream: %w", err)}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			// Trim the trailing newline
+			line = bytes.TrimSuffix(line, []byte("\n"))
+			if len(line) == 0 {
+				if err == io.EOF {
+					break
+				}
 				continue
 			}
 
 			var chatResp ChatResponse
-			if err := json.Unmarshal([]byte(line), &chatResp); err != nil {
-				// Skip malformed lines
+			if err := json.Unmarshal(line, &chatResp); err != nil {
+				// Skip malformed lines but don't exit
+				if err == io.EOF {
+					break
+				}
 				continue
 			}
 

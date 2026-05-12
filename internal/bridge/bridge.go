@@ -178,15 +178,35 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature)
 	if err != nil {
 		// Fall back to non-streaming if streaming fails
+		b.printer.PrintWarning(fmt.Sprintf("Streaming failed, falling back to non-streaming mode: %v", err))
 		return b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
 	}
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
+	var hasContent bool
 
-	// Start printing and collecting chunks
-	b.printer.PrintResponseStart()
+	// Collect all events before deciding whether to print
+	var events []ollama.StreamEvent
 	for event := range streamChan {
+		// Check for stream errors
+		if event.Err != nil {
+			b.printer.PrintWarning(fmt.Sprintf("Stream error encountered, using collected data: %v", event.Err))
+			break
+		}
+		events = append(events, event)
+		if event.Content != "" {
+			hasContent = true
+		}
+	}
+
+	// Only print response start if we have content or tool calls to show
+	if hasContent || len(allToolCalls) > 0 {
+		b.printer.PrintResponseStart()
+	}
+
+	// Now process collected events
+	for _, event := range events {
 		fullContent.WriteString(event.Content)
 		if event.Content != "" {
 			b.printer.PrintResponseChunk(event.Content)
@@ -197,7 +217,11 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 			allToolCalls = append(allToolCalls, event.ToolCalls...)
 		}
 	}
-	b.printer.PrintResponseEnd()
+
+	// Only print response end if we started printing
+	if hasContent || len(allToolCalls) > 0 {
+		b.printer.PrintResponseEnd()
+	}
 
 	msg := &ollama.Message{
 		Role:      "assistant",

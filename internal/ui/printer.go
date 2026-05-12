@@ -202,7 +202,10 @@ func (p *Printer) PrintResponseStart() {
 // PrintResponseChunk prints a chunk of the streamed response.
 func (p *Printer) PrintResponseChunk(chunk string) {
 	fmt.Fprint(os.Stdout, chunk)
-	os.Stdout.Sync()
+	// Note: Removed os.Stdout.Sync() call — calling fsync() on every chunk
+	// degrades performance significantly when output is redirected or piped.
+	// The buffer will be flushed naturally when the program exits or when
+	// sufficient data accumulates.
 }
 
 // PrintResponseEnd marks the end of a streamed response.
