@@ -139,8 +139,12 @@ func (m *InputModel) updateAutocomplete() {
 
 func (m InputModel) View() string {
 	// Input prompt
-	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
-	inputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+	promptStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("63")).
+		Bold(true)
+
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255"))
 
 	// Visible part of input
 	inputDisplay := m.value
@@ -155,12 +159,24 @@ func (m InputModel) View() string {
 		inputDisplay = "…" + inputDisplay[startIdx:]
 	}
 
-	// Build the input line
-	line := promptStyle.Render("❯ ") + inputStyle.Render(inputDisplay)
+	// Build the input line with clear visual feedback
+	displayValue := inputStyle.Render(inputDisplay)
+	if inputDisplay == "" {
+		displayValue = lipgloss.NewStyle().Faint(true).Render("<type here>")
+	}
 
-	// Add cursor indicator
+	line := promptStyle.Render("❯ ") + displayValue
+
+	// Add cursor indicator at end
 	if m.cursor >= len(m.value) {
-		line += lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
+		line += lipgloss.NewStyle().
+			Background(lipgloss.Color("240")).
+			Render(" ")
+	} else {
+		// Show cursor position in middle
+		line += lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Render("|")
 	}
 
 	// Add autocomplete suggestions if applicable
@@ -173,19 +189,31 @@ func (m InputModel) View() string {
 }
 
 func (m InputModel) renderAutocomplete() string {
-	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	selectedStyle := lipgloss.NewStyle().Background(lipgloss.Color("63")).Foreground(lipgloss.Color("255"))
+	selectedStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("63")).
+		Foreground(lipgloss.Color("255")).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Padding(0, 1)
 
 	var suggestions []string
 	for i, cmd := range m.autocomplete {
 		if i == m.selectedAC {
-			suggestions = append(suggestions, selectedStyle.Render("  → "+cmd))
+			suggestions = append(suggestions, selectedStyle.Render("▶ "+cmd+" ◀"))
 		} else {
-			suggestions = append(suggestions, suggestionStyle.Render("    "+cmd))
+			suggestions = append(suggestions, normalStyle.Render("  "+cmd))
 		}
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, suggestions...)
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Faint(true).
+		Padding(0, 1)
+
+	return headerStyle.Render("Suggestions (use ↑↓ to select, Tab to accept):") + "\n" +
+		lipgloss.JoinVertical(lipgloss.Left, suggestions...)
 }
 
 func (m InputModel) SetWidth(width int) {
