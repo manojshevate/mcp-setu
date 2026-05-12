@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
@@ -13,9 +13,11 @@ import (
 )
 
 type SessionModel struct {
-	width        int
-	height       int
-	input        InputModel
+	// Terminal
+	width  int
+	height int
+
+	// Data
 	ctx          context.Context
 	br           *bridge.Bridge
 	mcpClient    *mcp.MultiClient
@@ -23,8 +25,12 @@ type SessionModel struct {
 	printer      *ui.Printer
 	history      []ollama.Message
 	model        string
-	processing   bool
-	lastResponse string
+
+	// UI
+	input    InputModel
+	output   []string // Chat messages to display
+	status   string
+	quitting bool
 }
 
 func NewSessionModel(
@@ -37,10 +43,7 @@ func NewSessionModel(
 	systemPrompt string,
 ) SessionModel {
 	history := []ollama.Message{
-		{
-			Role:    "system",
-			Content: systemPrompt,
-		},
+		{Role: "system", Content: systemPrompt},
 	}
 
 	return SessionModel{
@@ -52,6 +55,7 @@ func NewSessionModel(
 		history:      history,
 		model:        model,
 		input:        NewInputModel(),
+		output:       []string{},
 	}
 }
 
@@ -68,184 +72,152 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Ctrl+C or Ctrl+D to quit
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
 			return m, tea.Quit
 		}
 
-		// Enter to submit
-		if msg.Type == tea.KeyEnter && !m.processing {
+		if msg.Type == tea.KeyEnter {
 			input := m.input.GetValue()
 			if input != "" {
 				m.input.AddToHistory(input)
+				m.output = append(m.output, "You: "+input)
 				m.input.Clear()
-				return m, m.submitInput(input)
+				m.status = "⟳ Processing..."
+				return m, m.processCmd(input)
 			}
 			return m, nil
 		}
 
-		// Pass other keys to input
-		updatedInput, cmd := m.input.Update(msg)
+		updatedInput, _ := m.input.Update(msg)
 		m.input = updatedInput.(InputModel)
-		return m, cmd
+		return m, nil
+
+	case ResponseMsg:
+		m.output = append(m.output, "Assistant: "+msg.Content)
+		m.status = ""
+		return m, nil
+
+	case ErrorMsg:
+		m.output = append(m.output, "Error: "+msg.Error)
+		m.status = ""
+		return m, nil
 	}
 
 	return m, nil
 }
 
-func (m *SessionModel) submitInput(input string) tea.Cmd {
+func (m *SessionModel) processCmd(input string) tea.Cmd {
 	return func() tea.Msg {
 		// Handle special commands
-		if handled, _ := m.handleSpecialCommand(input); handled {
+		if input == "exit" || input == "quit" {
+			m.quitting = true
 			return nil
 		}
 
-		m.processing = true
-		defer func() { m.processing = false }()
+		if input == "/tools" {
+			tools := ui.GetToolsTableFromMCP(m.mcpClient)
+			m.printer.PrintToolsTable(tools)
+			return nil
+		}
 
-		// Add user message
-		m.history = append(m.history, ollama.Message{
-			Role:    "user",
-			Content: input,
-		})
+		if input == "/clear" {
+			m.history = []ollama.Message{{Role: "system", Content: m.history[0].Content}}
+			m.output = []string{}
+			return nil
+		}
 
-		// Process message (printer handles output to stderr)
+		if input == "/servers" {
+			servers := ui.GetServersTableInfo(m.mcpClient)
+			m.printer.PrintServerTable(servers)
+			return nil
+		}
+
+		if input == "/stats" {
+			stats := m.br.GetStats()
+			statsInfo := ui.StatsInfo{
+				MessageCount:     stats.MessageCount,
+				ToolCallCount:    stats.ToolCallCount,
+				TotalDuration:    stats.TotalDuration,
+				IterationCount:   stats.IterationCount,
+				LastResponseTime: stats.LastResponseTime,
+				AverageLoopTime:  stats.AverageLoopTime,
+			}
+			m.printer.PrintStats(statsInfo)
+			return nil
+		}
+
+		if input == "/help" {
+			m.printer.PrintHelp()
+			return nil
+		}
+
+		if input == "/model" || strings.HasPrefix(input, "/model ") {
+			if input == "/model" {
+				models, _ := listModelInfos(m.ctx, m.ollamaClient)
+				m.printer.PrintModelSuggestions(m.model, models)
+			} else {
+				parts := strings.Fields(input)
+				if len(parts) == 2 {
+					if err := m.br.SetModel(m.ctx, parts[1]); err == nil {
+						m.model = parts[1]
+					}
+				}
+			}
+			return nil
+		}
+
+		// Process message
+		m.history = append(m.history, ollama.Message{Role: "user", Content: input})
 		response, err := m.br.ProcessMessage(m.ctx, m.history)
 		if err != nil {
-			m.printer.PrintError(err.Error())
-			m.history = m.history[:len(m.history)-1] // Remove user message on error
-			return nil
+			return ErrorMsg{Error: err.Error()}
 		}
 
-		// Add response to history
-		m.history = append(m.history, ollama.Message{
-			Role:    "assistant",
-			Content: response,
-		})
-
-		m.lastResponse = response
-		return nil
+		m.history = append(m.history, ollama.Message{Role: "assistant", Content: response})
+		return ResponseMsg{Content: response}
 	}
-}
-
-func (m *SessionModel) handleSpecialCommand(input string) (bool, error) {
-	if input == "exit" || input == "quit" {
-		return true, nil
-	}
-
-	if input == "/tools" {
-		tools := ui.GetToolsTableFromMCP(m.mcpClient)
-		m.printer.PrintToolsTable(tools)
-		return true, nil
-	}
-
-	if input == "/clear" {
-		m.history = []ollama.Message{
-			{
-				Role:    "system",
-				Content: m.history[0].Content,
-			},
-		}
-		m.printer.PrintSuccess("Conversation cleared.")
-		return true, nil
-	}
-
-	if input == "/servers" {
-		servers := ui.GetServersTableInfo(m.mcpClient)
-		m.printer.PrintServerTable(servers)
-		return true, nil
-	}
-
-	if input == "/stats" {
-		stats := m.br.GetStats()
-		statsInfo := ui.StatsInfo{
-			MessageCount:     stats.MessageCount,
-			ToolCallCount:    stats.ToolCallCount,
-			TotalDuration:    stats.TotalDuration,
-			IterationCount:   stats.IterationCount,
-			LastResponseTime: stats.LastResponseTime,
-			AverageLoopTime:  stats.AverageLoopTime,
-		}
-		m.printer.PrintStats(statsInfo)
-		return true, nil
-	}
-
-	if input == "/help" {
-		m.printer.PrintHelp()
-		return true, nil
-	}
-
-	if input == "/model" || strings.HasPrefix(input, "/model ") {
-		if input == "/model" {
-			models, err := listModelInfos(m.ctx, m.ollamaClient)
-			if err != nil {
-				m.printer.PrintError(err.Error())
-			} else {
-				m.printer.PrintModelSuggestions(m.model, models)
-			}
-		} else {
-			parts := strings.Fields(input)
-			if len(parts) == 2 {
-				newModel := parts[1]
-				if err := m.br.SetModel(m.ctx, newModel); err != nil {
-					models, _ := listModelInfos(m.ctx, m.ollamaClient)
-					m.printer.PrintModelAutocompleteHints(newModel, models)
-					return true, err
-				}
-				m.model = newModel
-				m.printer.PrintSuccess("Model switched to: " + newModel)
-			}
-		}
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func (m SessionModel) View() string {
-	if m.width == 0 || m.height == 0 {
+	if m.width == 0 {
 		return "Loading..."
 	}
 
-	// Input section at bottom (fixed)
-	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("63"))
+	// Input area
+	inputView := "❯ " + m.input.View()
 
-	inputStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Padding(0, 1)
+	// Separator
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", m.width))
 
-	inputLine := inputStyle.Render(
-		promptStyle.Render("❯ ") + m.input.View(),
-	)
-
-	// Status line above input
+	// Status
 	statusLine := ""
-	if m.processing {
-		statusStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Faint(true)
-		statusLine = statusStyle.Render("⟳ Processing...") + "\n"
+	if m.status != "" {
+		statusLine = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(m.status) + "\n"
 	}
 
-	// Separator line
-	separatorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-	separator := separatorStyle.Render(strings.Repeat("─", m.width)) + "\n"
-
-	// Bottom section (input + status)
-	bottom := statusLine + separator + inputLine
-
-	// Calculate top space (for spacing/visual separation)
-	bottomHeight := lipgloss.Height(bottom)
-	topSpace := m.height - bottomHeight - 2
-
-	if topSpace > 0 {
-		spacing := strings.Repeat("\n", topSpace)
-		return spacing + bottom
+	// Output area (scrollable)
+	outputHeight := m.height - 4
+	startIdx := 0
+	if len(m.output) > outputHeight {
+		startIdx = len(m.output) - outputHeight
 	}
 
-	return bottom
+	var outputLines []string
+	for i := startIdx; i < len(m.output); i++ {
+		outputLines = append(outputLines, m.output[i])
+	}
+
+	output := strings.Join(outputLines, "\n")
+
+	return output + "\n" + sep + "\n" + statusLine + inputView
+}
+
+type ResponseMsg struct {
+	Content string
+}
+
+type ErrorMsg struct {
+	Error string
 }
 
 func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
@@ -255,10 +227,7 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 	}
 	var infos []ui.ModelInfo
 	for _, m := range models {
-		infos = append(infos, ui.ModelInfo{
-			Name: m.Name,
-			Size: m.Size,
-		})
+		infos = append(infos, ui.ModelInfo{Name: m.Name, Size: m.Size})
 	}
 	return infos, nil
 }

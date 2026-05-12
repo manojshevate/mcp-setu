@@ -19,11 +19,6 @@ func RunChat(
 	model string,
 	systemPrompt string,
 ) error {
-	// Print welcome banner before starting TUI (it gets cleared by AltScreen)
-	serverCount := len(mcpClient.GetAllServerNames())
-	toolCount := len(mcpClient.GetAllTools())
-	printer.PrintBanner(model, "mcp.json", serverCount, toolCount)
-
 	sessionModel := NewSessionModel(
 		ctx,
 		br,
@@ -34,8 +29,7 @@ func RunChat(
 		systemPrompt,
 	)
 
-	// Run without AltScreen to preserve banner and allow proper rendering
-	p := tea.NewProgram(sessionModel)
+	p := tea.NewProgram(sessionModel, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }

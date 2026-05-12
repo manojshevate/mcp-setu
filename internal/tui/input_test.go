@@ -151,15 +151,15 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 
 	// No autocomplete without /
 	m.value = "hello"
-	m.updateAutocomplete()
-	if m.showAutocomplete {
+	m.updateAC()
+	if m.showAC {
 		t.Error("expected no autocomplete for non-slash input")
 	}
 
 	// Autocomplete with /
 	m.value = "/t"
-	m.updateAutocomplete()
-	if !m.showAutocomplete {
+	m.updateAC()
+	if !m.showAC {
 		t.Error("expected autocomplete for /t")
 	}
 
@@ -169,8 +169,8 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 
 	// No autocomplete for non-matching prefix
 	m.value = "/xyz"
-	m.updateAutocomplete()
-	if m.showAutocomplete && len(m.autocomplete) > 0 {
+	m.updateAC()
+	if m.showAC && len(m.autocomplete) > 0 {
 		t.Error("expected no autocomplete for /xyz")
 	}
 }
