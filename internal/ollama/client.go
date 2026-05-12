@@ -234,9 +234,8 @@ func (c *Client) ListLocalModels(ctx context.Context) ([]ModelInfo, error) {
 	var result []ModelInfo
 	for _, m := range modelsResp.Models {
 		result = append(result, ModelInfo{
-			Name:          m.Name,
-			Size:          formatBytes(m.Size),
-			ToolSupported: true,
+			Name: m.Name,
+			Size: formatBytes(m.Size),
 		})
 	}
 

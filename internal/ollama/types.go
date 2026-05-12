@@ -56,9 +56,8 @@ type ChatResponse struct {
 
 // ModelInfo represents metadata about a local Ollama model.
 type ModelInfo struct {
-	Name           string
-	Size           string
-	ToolSupported  bool
+	Name string
+	Size string
 }
 
 // ModelsResponse represents the response from /api/tags.
