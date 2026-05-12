@@ -13,7 +13,7 @@ import (
 func newTestSession(t *testing.T) SessionModel {
 	t.Helper()
 	mcpClient := mcp.NewMultiClient()
-	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, nil)
+	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, 4096, nil)
 	return NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
 }
 

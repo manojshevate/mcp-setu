@@ -30,13 +30,16 @@ func NewClient(baseURL string) *Client {
 }
 
 // Chat sends a chat request to Ollama and returns the response.
-func (c *Client) Chat(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64) (*Message, error) {
+func (c *Client) Chat(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64, contextLength int) (*Message, error) {
 	req := ChatRequest{
-		Model:       model,
-		Messages:    messages,
-		Tools:       tools,
-		Temperature: temperature,
-		Stream:      false,
+		Model:    model,
+		Messages: messages,
+		Tools:    tools,
+		Stream:   false,
+		Options: &Options{
+			Temperature: temperature,
+			NumCtx:      contextLength,
+		},
 	}
 
 	reqData, err := json.Marshal(req)
@@ -85,13 +88,16 @@ type StreamEvent struct {
 // ChatStream sends a streaming chat request to Ollama and returns a channel yielding response events.
 // Each event contains content chunks and any tool calls found.
 // The channel is closed when the stream is complete.
-func (c *Client) ChatStream(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64) (<-chan StreamEvent, error) {
+func (c *Client) ChatStream(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64, contextLength int) (<-chan StreamEvent, error) {
 	req := ChatRequest{
-		Model:       model,
-		Messages:    messages,
-		Tools:       tools,
-		Temperature: temperature,
-		Stream:      true,
+		Model:    model,
+		Messages: messages,
+		Tools:    tools,
+		Stream:   true,
+		Options: &Options{
+			Temperature: temperature,
+			NumCtx:      contextLength,
+		},
 	}
 
 	reqData, err := json.Marshal(req)
@@ -178,8 +184,8 @@ func (c *Client) ChatStream(ctx context.Context, model string, messages []Messag
 	return events, nil
 }
 
-// CheckToolSupport verifies that a model exists locally.
-func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
+// EnsureModelExists verifies that a model exists locally.
+func (c *Client) EnsureModelExists(ctx context.Context, model string) error {
 	// Check if the model exists locally.
 	reqBody, _ := json.Marshal(map[string]string{"name": model})
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/show", bytes.NewReader(reqBody))

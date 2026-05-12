@@ -25,7 +25,7 @@ func NewMockOllamaClient(responses []ollama.Message) *MockOllamaClient {
 }
 
 // Chat simulates a chat call and returns predefined responses.
-func (m *MockOllamaClient) Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error) {
+func (m *MockOllamaClient) Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64, contextLength int) (*ollama.Message, error) {
 	if m.callCount >= m.maxCalls {
 		return &ollama.Message{
 			Role:    "assistant",
@@ -39,9 +39,9 @@ func (m *MockOllamaClient) Chat(ctx context.Context, model string, messages []ol
 }
 
 // ChatStream simulates a streaming chat call by returning a channel with events.
-func (m *MockOllamaClient) ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (<-chan ollama.StreamEvent, error) {
+func (m *MockOllamaClient) ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64, contextLength int) (<-chan ollama.StreamEvent, error) {
 	// Reuse the Chat method to get the response, then stream it
-	resp, err := m.Chat(ctx, model, messages, tools, temperature)
+	resp, err := m.Chat(ctx, model, messages, tools, temperature, contextLength)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +60,8 @@ func (m *MockOllamaClient) ChatStream(ctx context.Context, model string, message
 	return ch, nil
 }
 
-// CheckToolSupport is a no-op for testing.
-func (m *MockOllamaClient) CheckToolSupport(ctx context.Context, model string) error {
+// EnsureModelExists is a no-op for testing.
+func (m *MockOllamaClient) EnsureModelExists(ctx context.Context, model string) error {
 	return nil
 }
 
@@ -138,7 +138,7 @@ func TestProcessMessageNoTools(t *testing.T) {
 	})
 	mcpClient := NewMockMCPClient()
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
 
 	messages := []ollama.Message{
 		{
@@ -187,7 +187,7 @@ func TestProcessMessageWithToolCall(t *testing.T) {
 	mcpClient.AddTool("test_tool", "test_server")
 	mcpClient.SetToolResult("test_tool", "test result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
 
 	messages := []ollama.Message{
 		{
@@ -249,7 +249,7 @@ func TestProcessMessageWithMultipleToolCalls(t *testing.T) {
 	mcpClient.SetToolResult("tool_b", "b_result")
 	mcpClient.SetToolResult("tool_c", "c_result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
 
 	messages := []ollama.Message{
 		{
@@ -291,7 +291,7 @@ func TestProcessMessageMaxIterations(t *testing.T) {
 	mcpClient.AddTool("infinite_tool", "server")
 	mcpClient.SetToolResult("infinite_tool", "result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
 
 	messages := []ollama.Message{
 		{
@@ -321,7 +321,7 @@ func TestExecuteToolsParallel(t *testing.T) {
 	mcpClient.SetToolResult("tool_2", "result_2")
 	mcpClient.SetToolResult("tool_3", "result_3")
 
-	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer)
 
 	toolCalls := []ollama.ToolCall{
 		{Name: "tool_1", Arguments: map[string]any{}},
@@ -356,7 +356,7 @@ func TestBuildToolsList(t *testing.T) {
 	mcpClient.AddTool("list_files", "filesystem")
 	mcpClient.AddTool("execute_query", "sqlite")
 
-	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, printer)
+	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer)
 
 	tools := bridge.buildToolsList()
 
@@ -374,7 +374,7 @@ func TestNewBridge(t *testing.T) {
 	ollamaClient := NewMockOllamaClient([]ollama.Message{})
 	mcpClient := NewMockMCPClient()
 
-	bridge := NewBridge(ollamaClient, mcpClient, "gemma4:e4b", 0.7, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "gemma4:e4b", 0.7, 4096, printer)
 
 	if bridge.model != "gemma4:e4b" {
 		t.Errorf("Expected model %q, got %q", "gemma4:e4b", bridge.model)
@@ -382,5 +382,9 @@ func TestNewBridge(t *testing.T) {
 
 	if bridge.temperature != 0.7 {
 		t.Errorf("Expected temperature 0.7, got %f", bridge.temperature)
+	}
+
+	if bridge.contextLength != 4096 {
+		t.Errorf("Expected contextLength 4096, got %d", bridge.contextLength)
 	}
 }

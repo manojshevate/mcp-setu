@@ -74,11 +74,14 @@ func TestChatRequestStructure(t *testing.T) {
 	}
 
 	req := ChatRequest{
-		Model:       "gemma4:e4b",
-		Messages:    messages,
-		Tools:       tools,
-		Temperature: 0.7,
-		Stream:      false,
+		Model:    "gemma4:e4b",
+		Messages: messages,
+		Tools:    tools,
+		Stream:   false,
+		Options: &Options{
+			Temperature: 0.7,
+			NumCtx:      4096,
+		},
 	}
 
 	if req.Model != "gemma4:e4b" {
@@ -148,15 +151,15 @@ func TestToolStructure(t *testing.T) {
 	}
 }
 
-// TestCheckToolSupportContextTimeout tests context cancellation in CheckToolSupport.
-func TestCheckToolSupportContextTimeout(t *testing.T) {
+// TestEnsureModelExistsContextTimeout tests context cancellation in EnsureModelExists.
+func TestEnsureModelExistsContextTimeout(t *testing.T) {
 	client := NewClient("http://localhost:11434")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
 	// This will timeout since localhost:11434 is not available
-	err := client.CheckToolSupport(ctx, "gemma4:e4b")
+	err := client.EnsureModelExists(ctx, "gemma4:e4b")
 	if err == nil {
 		t.Fatal("Expected error due to timeout or connection failure")
 	}

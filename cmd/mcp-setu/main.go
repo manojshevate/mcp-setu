@@ -142,8 +142,8 @@ func runChat(ctx context.Context) error {
 	// Create Ollama client.
 	ollamaClient := ollama.NewClient(cfg.Ollama.BaseURL)
 
-	// Check tool support.
-	if err := ollamaClient.CheckToolSupport(ctx, model); err != nil {
+	// Check model exists.
+	if err := ollamaClient.EnsureModelExists(ctx, model); err != nil {
 		printer.PrintError(err.Error())
 		return err
 	}
@@ -166,7 +166,7 @@ func runChat(ctx context.Context) error {
 
 	// Create bridge. Banner is rendered inside the TUI, not before it starts,
 	// so it doesn't get scrolled off-screen by AltScreen initialization.
-	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, printer)
+	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, cfg.Ollama.ContextLength, printer)
 
 	// Setup signal handling with context cancellation (inherit parent context).
 	ctx, cancel := context.WithCancel(ctx)
@@ -257,7 +257,7 @@ func runValidate(ctx context.Context) error {
 
 	// Test Ollama connectivity.
 	ollamaClient := ollama.NewClient(cfg.Ollama.BaseURL)
-	if err := ollamaClient.CheckToolSupport(ctx, cfg.Ollama.Model); err != nil {
+	if err := ollamaClient.EnsureModelExists(ctx, cfg.Ollama.Model); err != nil {
 		printer.PrintError(fmt.Sprintf("Ollama check failed: %v", err))
 		return err
 	}

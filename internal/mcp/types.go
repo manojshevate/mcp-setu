@@ -2,9 +2,9 @@ package mcp
 
 const (
 	// MCPProtocolVersion specifies the MCP protocol version to use.
-	// Using the latest stable version (2025-11-25) which includes improved
-	// authentication handling, parallel tool calls, and server-side agent loops.
-	MCPProtocolVersion = "2025-11-25"
+	// Version 2024-11-05 is widely deployed across popular MCP servers including
+	// @modelcontextprotocol/server-filesystem, server-memory, and server-sqlite.
+	MCPProtocolVersion = "2024-11-05"
 )
 
 // JSONRPCRequest represents a JSON-RPC 2.0 request.
