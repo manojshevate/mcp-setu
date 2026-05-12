@@ -38,6 +38,28 @@ func (m *MockOllamaClient) Chat(ctx context.Context, model string, messages []ol
 	return &resp, nil
 }
 
+// ChatStream simulates a streaming chat call by returning a channel with events.
+func (m *MockOllamaClient) ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (<-chan ollama.StreamEvent, error) {
+	// Reuse the Chat method to get the response, then stream it
+	resp, err := m.Chat(ctx, model, messages, tools, temperature)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan ollama.StreamEvent)
+	go func() {
+		defer close(ch)
+		// Stream the content and tool calls as an event
+		ch <- ollama.StreamEvent{
+			Content:   resp.Content,
+			ToolCalls: resp.ToolCalls,
+			Done:      true,
+		}
+	}()
+
+	return ch, nil
+}
+
 // CheckToolSupport is a no-op for testing.
 func (m *MockOllamaClient) CheckToolSupport(ctx context.Context, model string) error {
 	return nil

@@ -35,9 +35,8 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 	var infos []ui.ModelInfo
 	for _, m := range models {
 		infos = append(infos, ui.ModelInfo{
-			Name:          m.Name,
-			Size:          m.Size,
-			ToolSupported: m.ToolSupported,
+			Name: m.Name,
+			Size: m.Size,
 		})
 	}
 	return infos, nil
@@ -372,8 +371,9 @@ func runChat(ctx context.Context) error {
 				Content: response,
 			})
 
-			// Print response.
-			printer.PrintAssistantResponse(response)
+			// Note: Response is already printed by the bridge during streaming.
+			// The PrintAssistantResponse call is skipped since the response
+			// is displayed in real-time as it streams from Ollama.
 		}
 	}
 }
@@ -455,7 +455,7 @@ func runValidate(ctx context.Context) error {
 		return err
 	}
 
-	printer.PrintSuccess(fmt.Sprintf("Model %q found and supports tool calling", cfg.Ollama.Model))
+	printer.PrintSuccess(fmt.Sprintf("Model %q found", cfg.Ollama.Model))
 
 	// Test MCP servers.
 	for name, serverCfg := range cfg.MCPServers {

@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -73,9 +74,113 @@ func (c *Client) Chat(ctx context.Context, model string, messages []Message, too
 	return &chatResp.Message, nil
 }
 
-// CheckToolSupport verifies that a model supports tool calling and exists locally.
+// StreamEvent represents a chunk from a streaming chat response.
+type StreamEvent struct {
+	Content   string
+	ToolCalls []ToolCall
+	Done      bool
+	Err       error
+}
+
+// ChatStream sends a streaming chat request to Ollama and returns a channel yielding response events.
+// Each event contains content chunks and any tool calls found.
+// The channel is closed when the stream is complete.
+func (c *Client) ChatStream(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64) (<-chan StreamEvent, error) {
+	req := ChatRequest{
+		Model:       model,
+		Messages:    messages,
+		Tools:       tools,
+		Temperature: temperature,
+		Stream:      true,
+	}
+
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(reqData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Create a channel to send events
+	events := make(chan StreamEvent, 10)
+
+	// Start a goroutine to read the stream and send events
+	go func() {
+		defer resp.Body.Close()
+		defer close(events)
+
+		// Use bufio.Reader with ReadBytes to avoid 64KiB scanner buffer limit
+		// that can silently truncate large tool_calls or metadata
+		reader := bufio.NewReader(resp.Body)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil && err != io.EOF {
+				// Send error via event
+				select {
+				case events <- StreamEvent{Err: fmt.Errorf("failed to read stream: %w", err)}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			// Trim the trailing newline
+			line = bytes.TrimSuffix(line, []byte("\n"))
+			if len(line) == 0 {
+				if err == io.EOF {
+					break
+				}
+				continue
+			}
+
+			var chatResp ChatResponse
+			if err := json.Unmarshal(line, &chatResp); err != nil {
+				// Skip malformed lines but don't exit
+				if err == io.EOF {
+					break
+				}
+				continue
+			}
+
+			event := StreamEvent{
+				Content:   chatResp.Message.Content,
+				ToolCalls: chatResp.Message.ToolCalls,
+				Done:      chatResp.Done,
+			}
+
+			select {
+			case events <- event:
+			case <-ctx.Done():
+				return
+			}
+
+			// If done, we can exit early
+			if chatResp.Done {
+				break
+			}
+		}
+	}()
+
+	return events, nil
+}
+
+// CheckToolSupport verifies that a model exists locally.
 func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
-	// First, check if the model exists locally.
+	// Check if the model exists locally.
 	reqBody, _ := json.Marshal(map[string]string{"name": model})
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/show", bytes.NewReader(reqBody))
 	if err != nil {
@@ -99,18 +204,6 @@ func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ollama error %d", resp.StatusCode)
-	}
-
-	// Check if the model supports tool calling.
-	if !supportsToolCalling(model) {
-		supportedList := strings.Join(KnownToolSupportedModels, ", ")
-		return fmt.Errorf(
-			"model %q does not support tool calling\n\n"+
-				"Supported models: %s\n\n"+
-				"→ Switch model in mcp.json or use: mcp-setu chat --model gemma4:e4b\n"+
-				"→ See all local models: mcp-setu models",
-			model, supportedList,
-		)
 	}
 
 	return nil
@@ -141,23 +234,12 @@ func (c *Client) ListLocalModels(ctx context.Context) ([]ModelInfo, error) {
 	var result []ModelInfo
 	for _, m := range modelsResp.Models {
 		result = append(result, ModelInfo{
-			Name:          m.Name,
-			Size:          formatBytes(m.Size),
-			ToolSupported: supportsToolCalling(m.Name),
+			Name: m.Name,
+			Size: formatBytes(m.Size),
 		})
 	}
 
 	return result, nil
-}
-
-// supportsToolCalling checks if a model name matches a known tool-supporting model prefix.
-func supportsToolCalling(modelName string) bool {
-	for _, prefix := range KnownToolSupportedModels {
-		if strings.HasPrefix(modelName, prefix) {
-			return true
-		}
-	}
-	return false
 }
 
 // formatBytes converts a byte count to a human-readable string.

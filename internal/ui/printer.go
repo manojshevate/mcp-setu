@@ -141,9 +141,8 @@ func (p *Printer) PrintToolsTable(tools []ToolInfo) {
 
 // ModelInfo holds info about a model.
 type ModelInfo struct {
-	Name          string
-	Size          string
-	ToolSupported bool
+	Name string
+	Size string
 }
 
 // PrintModelsTable prints a table of available Ollama models.
@@ -156,24 +155,17 @@ func (p *Printer) PrintModelsTable(models []ModelInfo) {
 	headerStyle := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	borderStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("┌─────────────────────┬──────────┬──────────────────────┐"))
-	fmt.Fprintf(os.Stdout, "│ %s │ %s │ %s │\n",
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("┌─────────────────────┬──────────┐"))
+	fmt.Fprintf(os.Stdout, "│ %s │ %s │\n",
 		headerStyle.Render("Model               "),
-		headerStyle.Render("Size     "),
-		headerStyle.Render("Tool Support        "))
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────┼──────────┼──────────────────────┤"))
+		headerStyle.Render("Size     "))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────┼──────────┤"))
 
 	for _, m := range models {
-		toolSupport := "✗ no tool calling"
-		if m.ToolSupported {
-			toolSupport = lipgloss.NewStyle().Foreground(colorSuccess).Render("✓ supported")
-		} else {
-			toolSupport = lipgloss.NewStyle().Foreground(colorError).Render(toolSupport)
-		}
-		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │ %-20s │\n", m.Name, m.Size, toolSupport)
+		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │\n", m.Name, m.Size)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────┴──────────┴──────────────────────┘"))
+	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("└─────────────────────┴──────────┘"))
 }
 
 // PrintUserPrompt prints the user input prompt.
@@ -190,6 +182,28 @@ func (p *Printer) PrintAssistantResponse(content string) {
 	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┃"))
 	fmt.Fprintf(os.Stdout, "%s %s\n", labelStyle.Render("setu: "), content)
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("┃"))
+}
+
+// PrintResponseStart marks the beginning of a streamed response.
+func (p *Printer) PrintResponseStart() {
+	borderStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┃"))
+	fmt.Fprint(os.Stdout, lipgloss.NewStyle().Foreground(colorMuted).Bold(true).Render("setu: "))
+}
+
+// PrintResponseChunk prints a chunk of the streamed response.
+func (p *Printer) PrintResponseChunk(chunk string) {
+	fmt.Fprint(os.Stdout, chunk)
+	// Note: Removed os.Stdout.Sync() call — calling fsync() on every chunk
+	// degrades performance significantly when output is redirected or piped.
+	// The buffer will be flushed naturally when the program exits or when
+	// sufficient data accumulates.
+}
+
+// PrintResponseEnd marks the end of a streamed response.
+func (p *Printer) PrintResponseEnd() {
+	borderStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	fmt.Fprintf(os.Stdout, "\n%s\n\n", borderStyle.Render("┃"))
 }
 
 // PrintLLMProcessing prints that the LLM is processing a message in verbose mode.
@@ -351,28 +365,21 @@ func (p *Printer) PrintModelSuggestions(currentModel string, models []ModelInfo)
 	currentStyle := lipgloss.NewStyle().Foreground(colorSuccess)
 	hintStyle := lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
 
-	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┌─────────────────────┬──────────┬──────────────────────┐"))
-	fmt.Fprintf(os.Stdout, "│ %s │ %s │ %s │\n",
+	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┌─────────────────────┬──────────┐"))
+	fmt.Fprintf(os.Stdout, "│ %s │ %s │\n",
 		headerStyle.Render("Model               "),
-		headerStyle.Render("Size     "),
-		headerStyle.Render("Tool Support        "))
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────┼──────────┼──────────────────────┤"))
+		headerStyle.Render("Size     "))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("├─────────────────────┼──────────┤"))
 
 	for _, m := range models {
-		toolSupport := "✗ no tool calling"
 		modelName := m.Name
 		if m.Name == currentModel {
 			modelName = currentStyle.Render(modelName + " (current)")
 		}
-		if m.ToolSupported {
-			toolSupport = lipgloss.NewStyle().Foreground(colorSuccess).Render("✓ supported")
-		} else {
-			toolSupport = lipgloss.NewStyle().Foreground(colorError).Render(toolSupport)
-		}
-		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │ %-20s │\n", modelName, m.Size, toolSupport)
+		fmt.Fprintf(os.Stdout, "│ %-19s │ %-8s │\n", modelName, m.Size)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("└─────────────────────┴──────────┴──────────────────────┘"))
+	fmt.Fprintf(os.Stdout, "%s\n", borderStyle.Render("└─────────────────────┴──────────┘"))
 	fmt.Fprintf(os.Stdout, "%s\n\n", hintStyle.Render("→ Use '/model <name>' to switch (e.g., /model gemma4:e4b)"))
 }
 

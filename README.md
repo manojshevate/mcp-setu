@@ -11,7 +11,7 @@ mcp-setu connects your local Ollama instance to MCP servers, enabling models lik
 - **Go 1.26+** — [Download](https://golang.org/dl/) — Latest version recommended for performance
 - **Ollama** — [https://ollama.com](https://ollama.com) — Run `ollama serve` before starting mcp-setu
 - **Node.js 18+** — Required for npx-based MCP servers like the filesystem and SQLite tools
-- **A tool-calling capable model** — See [Supported Models](#supported-models) for recommendations
+- **Any Ollama model** — Use any model you have installed; recommended models with strong tool use in [Supported Models](#supported-models)
 
 ## Installation
 
@@ -216,7 +216,7 @@ You can customize `mcp.json` to add more servers. mcp-setu supports multiple tra
 **Field descriptions:**
 
 - **ollama.baseUrl** — Ollama HTTP endpoint (default: `http://localhost:11434`)
-- **ollama.model** — Model to use (must support tool calling; see [Supported Models](#supported-models))
+- **ollama.model** — Model to use (any Ollama model; see [Supported Models](#supported-models) for recommendations)
 - **ollama.systemPrompt** — System prompt sent with every request (default: generic assistant prompt)
 - **ollama.temperature** — Sampling temperature 0–1 (default: `0.7`)
 - **ollama.contextLength** — Max context window size in tokens (default: `4096`)
@@ -250,7 +250,7 @@ You can customize `mcp.json` to add more servers. mcp-setu supports multiple tra
 | phi4            | phi4:14b         | Compact and capable                      |
 | deepseek-r1     | deepseek-r1:7b   | Strong reasoning + tool use              |
 
-> **mcp-setu checks tool support at startup** and exits with a clear error if your model doesn't support tool calling. Run `mcp-setu models` to see what's available locally and which models are compatible.
+> **You can use any model installed locally.** The models listed above are recommended for better tool use performance. If your model struggles with tool calls, try switching to one of the recommended models with `/model <name>`.
 
 ## CLI Reference
 
@@ -686,19 +686,18 @@ ollama pull gemma4:e4b
 
 Run `mcp-setu models` to see all locally available models.
 
-**"Model X does not support tool calling"**
+**"Tool calls don't work with my model"**
 
 ```bash
-# Check which models support tool calling
-mcp-setu models
-
-# Switch to a supported model
+# Model performance varies. Try one of the recommended models:
+mcp-setu chat --model gemma4:e2b
+mcp-setu chat --model qwen2.5:7b
 mcp-setu chat --model llama3.2:latest
 
-# Or update mcp.json
+# Or update mcp.json and restart
 ```
 
-See [Supported Models](#supported-models) section for the full list.
+See [Supported Models](#supported-models) section for recommendations.
 
 **"Failed to start MCP server"**
 
@@ -756,19 +755,22 @@ mcp-setu models
 
 ### Current Limitations
 
-- **No streaming responses** — Responses are waited for completely before displaying (by design for tool calling)
-- **Linear tool calls** — Tools execute sequentially, not in parallel (FIXED: now parallel for independent calls!)
 - **No conversation persistence** — History is in-memory only; cleared on exit
-- **Single model at a time** — Can't switch models mid-conversation
 
 ### Planned Enhancements
 
 #### ✅ Completed
 
+- [x] **Streaming responses**
+  - Show model output as it arrives (real-time typing effect)
+  - Improves UX for long responses
+  - Proper fallback to non-streaming if streaming fails
+  - Full support for tool calling during streaming
+
 - [x] **Model switching during chat**
   - Change models mid-conversation with `/model <name>` command
   - Auto-suggests available models when you run `/model` without arguments
-  - Validates tool support before switching
+  - Choose any model from your Ollama installation
 
 - [x] **Performance monitoring**
   - Track response times, tool calls, iterations, and session duration

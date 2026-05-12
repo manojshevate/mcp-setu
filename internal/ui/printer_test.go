@@ -66,9 +66,8 @@ func TestToolInfo(t *testing.T) {
 // TestModelInfo tests ModelInfo structure.
 func TestModelInfo(t *testing.T) {
 	info := ModelInfo{
-		Name:          "gemma4:e4b",
-		Size:          "4.0 GB",
-		ToolSupported: true,
+		Name: "gemma4:e4b",
+		Size: "4.0 GB",
 	}
 
 	if info.Name != "gemma4:e4b" {
@@ -77,10 +76,6 @@ func TestModelInfo(t *testing.T) {
 
 	if info.Size != "4.0 GB" {
 		t.Errorf("Expected size 4.0 GB, got %s", info.Size)
-	}
-
-	if !info.ToolSupported {
-		t.Error("Expected tool support to be true")
 	}
 }
 
@@ -144,7 +139,7 @@ func TestPrinterMethods(t *testing.T) {
 	tools := []ToolInfo{{Name: "test", Server: "test", Description: "test"}}
 	printer.PrintToolsTable(tools)
 
-	models := []ModelInfo{{Name: "test:latest", Size: "1GB", ToolSupported: true}}
+	models := []ModelInfo{{Name: "test:latest", Size: "1GB"}}
 	printer.PrintModelsTable(models)
 
 	printer.PrintSuccess("test message")
