@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 // OllamaClient defines the interface for Ollama API interactions.
 type OllamaClient interface {
 	Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error)
+	ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (<-chan ollama.StreamEvent, error)
 	CheckToolSupport(ctx context.Context, model string) error
 	ListLocalModels(ctx context.Context) ([]ollama.ModelInfo, error)
 }
@@ -123,7 +125,15 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		model := b.model
 		temperature := b.temperature
 		b.mu.RUnlock()
-		resp, err := b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
+
+		// For the final response (no tool calls expected), use streaming.
+		// For intermediate iterations with tool calls, we need the full response first.
+		var resp *ollama.Message
+		var err error
+
+		// Check if this is potentially the final response by trying streaming first
+		// If we get tool calls, we already have them from the streaming response
+		resp, err = b.processMessageWithStreaming(ctx, model, messages, tools, temperature)
 		if err != nil {
 			return "", fmt.Errorf("ollama chat failed: %w", err)
 		}
@@ -161,6 +171,41 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	}
 
 	return "", fmt.Errorf("agent loop exceeded %d iterations — possible infinite tool loop", maxIterations)
+}
+
+// processMessageWithStreaming handles streaming response from Ollama and collects tool calls.
+func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error) {
+	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature)
+	if err != nil {
+		// Fall back to non-streaming if streaming fails
+		return b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
+	}
+
+	var fullContent strings.Builder
+	var allToolCalls []ollama.ToolCall
+
+	// Start printing and collecting chunks
+	b.printer.PrintResponseStart()
+	for event := range streamChan {
+		fullContent.WriteString(event.Content)
+		if event.Content != "" {
+			b.printer.PrintResponseChunk(event.Content)
+		}
+
+		// Collect tool calls from the event
+		if len(event.ToolCalls) > 0 {
+			allToolCalls = append(allToolCalls, event.ToolCalls...)
+		}
+	}
+	b.printer.PrintResponseEnd()
+
+	msg := &ollama.Message{
+		Role:      "assistant",
+		Content:   fullContent.String(),
+		ToolCalls: allToolCalls,
+	}
+
+	return msg, nil
 }
 
 // executeToolsParallel executes multiple tool calls concurrently with a limit of 8 workers.

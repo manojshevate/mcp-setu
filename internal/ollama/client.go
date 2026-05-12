@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -71,6 +72,90 @@ func (c *Client) Chat(ctx context.Context, model string, messages []Message, too
 	}
 
 	return &chatResp.Message, nil
+}
+
+// StreamEvent represents a chunk from a streaming chat response.
+type StreamEvent struct {
+	Content   string
+	ToolCalls []ToolCall
+	Done      bool
+}
+
+// ChatStream sends a streaming chat request to Ollama and returns a channel yielding response events.
+// Each event contains content chunks and any tool calls found.
+// The channel is closed when the stream is complete.
+func (c *Client) ChatStream(ctx context.Context, model string, messages []Message, tools []Tool, temperature float64) (<-chan StreamEvent, error) {
+	req := ChatRequest{
+		Model:       model,
+		Messages:    messages,
+		Tools:       tools,
+		Temperature: temperature,
+		Stream:      true,
+	}
+
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(reqData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Create a channel to send events
+	events := make(chan StreamEvent, 10)
+
+	// Start a goroutine to read the stream and send events
+	go func() {
+		defer resp.Body.Close()
+		defer close(events)
+
+		scanner := bufio.NewScanner(resp.Body)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+
+			var chatResp ChatResponse
+			if err := json.Unmarshal([]byte(line), &chatResp); err != nil {
+				// Skip malformed lines
+				continue
+			}
+
+			event := StreamEvent{
+				Content:   chatResp.Message.Content,
+				ToolCalls: chatResp.Message.ToolCalls,
+				Done:      chatResp.Done,
+			}
+
+			select {
+			case events <- event:
+			case <-ctx.Done():
+				return
+			}
+
+			// If done, we can exit early
+			if chatResp.Done {
+				break
+			}
+		}
+	}()
+
+	return events, nil
 }
 
 // CheckToolSupport verifies that a model supports tool calling and exists locally.

@@ -192,6 +192,25 @@ func (p *Printer) PrintAssistantResponse(content string) {
 	fmt.Fprintf(os.Stdout, "%s\n\n", borderStyle.Render("┃"))
 }
 
+// PrintResponseStart marks the beginning of a streamed response.
+func (p *Printer) PrintResponseStart() {
+	borderStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	fmt.Fprintf(os.Stdout, "\n%s\n", borderStyle.Render("┃"))
+	fmt.Fprint(os.Stdout, lipgloss.NewStyle().Foreground(colorMuted).Bold(true).Render("setu: "))
+}
+
+// PrintResponseChunk prints a chunk of the streamed response.
+func (p *Printer) PrintResponseChunk(chunk string) {
+	fmt.Fprint(os.Stdout, chunk)
+	os.Stdout.Sync()
+}
+
+// PrintResponseEnd marks the end of a streamed response.
+func (p *Printer) PrintResponseEnd() {
+	borderStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	fmt.Fprintf(os.Stdout, "\n%s\n\n", borderStyle.Render("┃"))
+}
+
 // PrintLLMProcessing prints that the LLM is processing a message in verbose mode.
 func (p *Printer) PrintLLMProcessing(iterationNum int) {
 	if !p.verbose {
