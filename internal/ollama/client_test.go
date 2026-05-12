@@ -34,36 +34,6 @@ func TestNewClientTrimsTrailingSlash(t *testing.T) {
 	}
 }
 
-// TestSupportsToolCalling tests model tool calling support detection.
-func TestSupportsToolCalling(t *testing.T) {
-	tests := []struct {
-		model    string
-		expected bool
-	}{
-		{"gemma4:e4b", true},
-		{"gemma4:latest", true},
-		{"gemma3:2b", true},
-		{"gemma2:2b", true},
-		{"qwen2.5:7b", true},
-		{"qwen3:14b", true},
-		{"llama3.2:3b", true},
-		{"llama3.3:70b", true},
-		{"mistral-nemo:12b", true},
-		{"command-r:35b", true},
-		{"phi4:14b", true},
-		{"deepseek-r1:7b", true},
-		{"unknown:latest", false},
-		{"mistral:latest", false},
-	}
-
-	for _, tt := range tests {
-		result := supportsToolCalling(tt.model)
-		if result != tt.expected {
-			t.Errorf("Model %s: expected %v, got %v", tt.model, tt.expected, result)
-		}
-	}
-}
-
 // TestFormatBytes tests byte formatting.
 func TestFormatBytes(t *testing.T) {
 	tests := []struct {
@@ -83,34 +53,6 @@ func TestFormatBytes(t *testing.T) {
 		result := formatBytes(tt.bytes)
 		if result != tt.expected {
 			t.Errorf("formatBytes(%d): expected %s, got %s", tt.bytes, tt.expected, result)
-		}
-	}
-}
-
-// TestKnownToolSupportedModels tests the model list.
-func TestKnownToolSupportedModels(t *testing.T) {
-	if len(KnownToolSupportedModels) == 0 {
-		t.Fatal("Expected non-empty KnownToolSupportedModels list")
-	}
-
-	expectedModels := map[string]bool{
-		"gemma4":       true,
-		"gemma3":       true,
-		"qwen2.5":      true,
-		"llama3.2":     true,
-		"mistral-nemo": true,
-	}
-
-	for model := range expectedModels {
-		found := false
-		for _, known := range KnownToolSupportedModels {
-			if known == model {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Expected model %s in KnownToolSupportedModels", model)
 		}
 	}
 }

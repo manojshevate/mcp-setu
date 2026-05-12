@@ -1,18 +1,5 @@
 package ollama
 
-// KnownToolSupportedModels is the list of Ollama model prefixes known to
-// support tool calling. Update this list as new models gain support.
-// Prefix matching is used so "gemma4:e4b" matches "gemma4".
-var KnownToolSupportedModels = []string{
-	"gemma4", "gemma3", "gemma2",
-	"qwen2.5", "qwen3",
-	"llama3.1", "llama3.2", "llama3.3",
-	"mistral-nemo",
-	"command-r",
-	"phi4",
-	"deepseek-r1",
-}
-
 // ChatRequest represents a request to the Ollama /api/chat endpoint.
 type ChatRequest struct {
 	Model       string       `json:"model"`

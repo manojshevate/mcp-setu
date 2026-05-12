@@ -178,9 +178,9 @@ func (c *Client) ChatStream(ctx context.Context, model string, messages []Messag
 	return events, nil
 }
 
-// CheckToolSupport verifies that a model supports tool calling and exists locally.
+// CheckToolSupport verifies that a model exists locally.
 func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
-	// First, check if the model exists locally.
+	// Check if the model exists locally.
 	reqBody, _ := json.Marshal(map[string]string{"name": model})
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/show", bytes.NewReader(reqBody))
 	if err != nil {
@@ -204,18 +204,6 @@ func (c *Client) CheckToolSupport(ctx context.Context, model string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ollama error %d", resp.StatusCode)
-	}
-
-	// Check if the model supports tool calling.
-	if !supportsToolCalling(model) {
-		supportedList := strings.Join(KnownToolSupportedModels, ", ")
-		return fmt.Errorf(
-			"model %q does not support tool calling\n\n"+
-				"Supported models: %s\n\n"+
-				"→ Switch model in mcp.json or use: mcp-setu chat --model gemma4:e4b\n"+
-				"→ See all local models: mcp-setu models",
-			model, supportedList,
-		)
 	}
 
 	return nil
@@ -248,21 +236,11 @@ func (c *Client) ListLocalModels(ctx context.Context) ([]ModelInfo, error) {
 		result = append(result, ModelInfo{
 			Name:          m.Name,
 			Size:          formatBytes(m.Size),
-			ToolSupported: supportsToolCalling(m.Name),
+			ToolSupported: true,
 		})
 	}
 
 	return result, nil
-}
-
-// supportsToolCalling checks if a model name matches a known tool-supporting model prefix.
-func supportsToolCalling(modelName string) bool {
-	for _, prefix := range KnownToolSupportedModels {
-		if strings.HasPrefix(modelName, prefix) {
-			return true
-		}
-	}
-	return false
 }
 
 // formatBytes converts a byte count to a human-readable string.
