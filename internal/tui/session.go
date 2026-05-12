@@ -207,35 +207,45 @@ func (m SessionModel) View() string {
 		return "Loading..."
 	}
 
-	// Simple layout: input at bottom with styling
+	// Input section at bottom (fixed)
 	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("63")).
-		Bold(true)
+		Foreground(lipgloss.Color("63"))
 
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(1, 2)
+	inputStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Padding(0, 1)
 
-	statusText := ""
-	if m.processing {
-		statusText = "⟳ Processing..."
-	}
-
-	inputSection := borderStyle.Render(
+	inputLine := inputStyle.Render(
 		promptStyle.Render("❯ ") + m.input.View(),
 	)
 
-	// Show status if processing
+	// Status line above input
+	statusLine := ""
 	if m.processing {
 		statusStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
-			Faint(true).
-			Padding(0, 2)
-		return statusStyle.Render(statusText) + "\n" + inputSection
+			Faint(true)
+		statusLine = statusStyle.Render("⟳ Processing...") + "\n"
 	}
 
-	return inputSection
+	// Separator line
+	separatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	separator := separatorStyle.Render(strings.Repeat("─", m.width)) + "\n"
+
+	// Bottom section (input + status)
+	bottom := statusLine + separator + inputLine
+
+	// Calculate top space (for spacing/visual separation)
+	bottomHeight := lipgloss.Height(bottom)
+	topSpace := m.height - bottomHeight - 2
+
+	if topSpace > 0 {
+		spacing := strings.Repeat("\n", topSpace)
+		return spacing + bottom
+	}
+
+	return bottom
 }
 
 func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
