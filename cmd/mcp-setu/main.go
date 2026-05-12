@@ -182,7 +182,7 @@ func runChat(ctx context.Context) error {
 	}()
 
 	// Run the TUI chat.
-	return tui.RunChat(ctx, br, mcpClient, ollamaClient, printer, model, systemPrompt)
+	return tui.RunChat(ctx, br, mcpClient, ollamaClient, printer, model, systemPrompt, verbose)
 }
 
 func runTools(ctx context.Context) error {

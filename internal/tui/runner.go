@@ -21,9 +21,10 @@ func RunChat(
 	printer *ui.Printer, // unused; kept for call-site compatibility
 	model string,
 	systemPrompt string,
+	verbose bool,
 ) error {
 	_ = printer
-	sessionModel := NewSessionModel(ctx, br, mcpClient, ollamaClient, model, systemPrompt)
+	sessionModel := NewSessionModel(ctx, br, mcpClient, ollamaClient, model, systemPrompt, verbose)
 	p := tea.NewProgram(sessionModel, tea.WithAltScreen())
 	_, err := p.Run()
 	return err

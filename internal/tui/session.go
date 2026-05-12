@@ -44,6 +44,7 @@ type SessionModel struct {
 	mcpClient    *mcp.MultiClient
 	ollamaClient *ollama.Client
 	model        string
+	verbose      bool
 
 	// chat state
 	history []ollama.Message
@@ -66,6 +67,7 @@ func NewSessionModel(
 	ollamaClient *ollama.Client,
 	model string,
 	systemPrompt string,
+	verbose bool,
 ) SessionModel {
 	eventCh := make(chan Event, 1024)
 
@@ -79,6 +81,8 @@ func NewSessionModel(
 		input:        NewInputModel(),
 		eventCh:      eventCh,
 	}
+	// Store the verbose flag so we can pass it to the printer later.
+	m.verbose = verbose
 	m.appendBanner()
 	return m
 }
@@ -146,7 +150,7 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Install the TUI printer on the bridge exactly once, just-in-time.
 			if !m.printerWire {
-				m.br.SetPrinter(NewPrinter(m.eventCh))
+				m.br.SetPrinter(NewPrinter(m.eventCh, m.verbose))
 				m.printerWire = true
 			}
 
