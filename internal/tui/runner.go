@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
@@ -19,6 +21,16 @@ func RunChat(
 	model string,
 	systemPrompt string,
 ) error {
+	// Print welcome info before starting TUI
+	serverCount := len(mcpClient.GetAllServerNames())
+	toolCount := len(mcpClient.GetAllTools())
+	printer.PrintBanner(model, "mcp.json", serverCount, toolCount)
+	serverInfos := ui.GetServersTableInfo(mcpClient)
+	printer.PrintServerTable(serverInfos)
+
+	// Add spacing
+	fmt.Fprintf(os.Stdout, "\n")
+
 	sessionModel := NewSessionModel(
 		ctx,
 		br,

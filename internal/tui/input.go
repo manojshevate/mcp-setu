@@ -77,6 +77,11 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showAC = false
 			}
 
+		case tea.KeySpace:
+			m.value = m.value[:m.cursor] + " " + m.value[m.cursor:]
+			m.cursor++
+			m.updateAC()
+
 		case tea.KeyRunes:
 			for _, r := range msg.Runes {
 				m.value = m.value[:m.cursor] + string(r) + m.value[m.cursor:]
