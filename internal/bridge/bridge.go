@@ -174,6 +174,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 }
 
 // processMessageWithStreaming handles streaming response from Ollama and collects tool calls.
+// Returns the full message and a flag indicating whether the response was already printed.
 func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error) {
 	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature)
 	if err != nil {
@@ -184,31 +185,21 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
-	var hasContent bool
 
-	// Collect all events before deciding whether to print
-	var events []ollama.StreamEvent
+	// Start printing response before any content arrives for immediate feedback
+	b.printer.PrintResponseStart()
+
+	// Stream chunks as they arrive in real-time
 	for event := range streamChan {
 		// Check for stream errors
 		if event.Err != nil {
-			b.printer.PrintWarning(fmt.Sprintf("Stream error encountered, using collected data: %v", event.Err))
-			break
+			b.printer.PrintWarning(fmt.Sprintf("Stream error encountered: %v", event.Err))
+			// Continue processing with collected data so far
 		}
-		events = append(events, event)
-		if event.Content != "" {
-			hasContent = true
-		}
-	}
 
-	// Only print response start if we have content or tool calls to show
-	if hasContent || len(allToolCalls) > 0 {
-		b.printer.PrintResponseStart()
-	}
-
-	// Now process collected events
-	for _, event := range events {
-		fullContent.WriteString(event.Content)
+		// Accumulate content
 		if event.Content != "" {
+			fullContent.WriteString(event.Content)
 			b.printer.PrintResponseChunk(event.Content)
 		}
 
@@ -218,10 +209,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		}
 	}
 
-	// Only print response end if we started printing
-	if hasContent || len(allToolCalls) > 0 {
-		b.printer.PrintResponseEnd()
-	}
+	b.printer.PrintResponseEnd()
 
 	msg := &ollama.Message{
 		Role:      "assistant",

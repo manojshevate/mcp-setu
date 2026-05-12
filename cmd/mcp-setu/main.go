@@ -372,8 +372,9 @@ func runChat(ctx context.Context) error {
 				Content: response,
 			})
 
-			// Print response.
-			printer.PrintAssistantResponse(response)
+			// Note: Response is already printed by the bridge during streaming.
+			// The PrintAssistantResponse call is skipped since the response
+			// is displayed in real-time as it streams from Ollama.
 		}
 	}
 }
