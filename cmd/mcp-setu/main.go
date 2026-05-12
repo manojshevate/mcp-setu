@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -15,6 +13,7 @@ import (
 	"github.com/manojshevate/mcp-setu/internal/config"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
+	"github.com/manojshevate/mcp-setu/internal/tui"
 	"github.com/manojshevate/mcp-setu/internal/ui"
 	"github.com/manojshevate/mcp-setu/internal/version"
 )
@@ -165,14 +164,8 @@ func runChat(ctx context.Context) error {
 		_ = mcpClient.CloseAll()
 	}()
 
-	// Print startup info.
-	serverCount := len(cfg.MCPServers)
-	toolCount := len(mcpClient.GetAllTools())
-	printer.PrintBanner(model, configPath, serverCount, toolCount)
-	serverInfos := ui.GetServersTableInfo(mcpClient)
-	printer.PrintServerTable(serverInfos)
-
-	// Create bridge.
+	// Create bridge. Banner is rendered inside the TUI, not before it starts,
+	// so it doesn't get scrolled off-screen by AltScreen initialization.
 	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, printer)
 
 	// Setup signal handling with context cancellation (inherit parent context).
@@ -188,194 +181,8 @@ func runChat(ctx context.Context) error {
 		cancel()
 	}()
 
-	// REPL loop.
-	scanner := bufio.NewScanner(os.Stdin)
-	history := []ollama.Message{
-		{
-			Role:    "system",
-			Content: systemPrompt,
-		},
-	}
-
-	// Channel to receive input from scanner goroutine.
-	inputCh := make(chan string)
-	scanDoneCh := make(chan struct{})
-
-	// Goroutine to read from scanner non-blockingly, respecting context cancellation.
-	go func() {
-		defer close(scanDoneCh)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			if scanner.Scan() {
-				select {
-				case inputCh <- scanner.Text():
-				case <-ctx.Done():
-					return
-				}
-			} else {
-				return
-			}
-		}
-	}()
-
-	for {
-		printer.PrintUserPrompt()
-
-		// Check if context was cancelled (signal received) or input received.
-		select {
-		case <-ctx.Done():
-			stats := br.GetStats()
-			statsInfo := ui.StatsInfo{
-				MessageCount:     stats.MessageCount,
-				ToolCallCount:    stats.ToolCallCount,
-				TotalDuration:    stats.TotalDuration,
-				IterationCount:   stats.IterationCount,
-				LastResponseTime: stats.LastResponseTime,
-				AverageLoopTime:  stats.AverageLoopTime,
-			}
-			printer.PrintExitSummary(statsInfo)
-			return nil
-		case input, ok := <-inputCh:
-			if !ok {
-				// Input goroutine closed (EOF or error).
-				stats := br.GetStats()
-				statsInfo := ui.StatsInfo{
-					MessageCount:     stats.MessageCount,
-					ToolCallCount:    stats.ToolCallCount,
-					TotalDuration:    stats.TotalDuration,
-					IterationCount:   stats.IterationCount,
-					LastResponseTime: stats.LastResponseTime,
-					AverageLoopTime:  stats.AverageLoopTime,
-				}
-				printer.PrintExitSummary(statsInfo)
-				return nil
-			}
-			input = strings.TrimSpace(input)
-			if input == "" {
-				continue
-			}
-
-			// Handle special commands.
-			if input == "exit" || input == "quit" {
-				printer.PrintSuccess("Goodbye!")
-				stats := br.GetStats()
-				statsInfo := ui.StatsInfo{
-					MessageCount:     stats.MessageCount,
-					ToolCallCount:    stats.ToolCallCount,
-					TotalDuration:    stats.TotalDuration,
-					IterationCount:   stats.IterationCount,
-					LastResponseTime: stats.LastResponseTime,
-					AverageLoopTime:  stats.AverageLoopTime,
-				}
-				printer.PrintExitSummary(statsInfo)
-				return nil
-			}
-
-			if input == "/tools" {
-				tools := ui.GetToolsTableFromMCP(mcpClient)
-				printer.PrintToolsTable(tools)
-				continue
-			}
-
-			if input == "/clear" {
-				history = []ollama.Message{
-					{
-						Role:    "system",
-						Content: systemPrompt,
-					},
-				}
-				printer.PrintSuccess("Conversation cleared.")
-				continue
-			}
-
-			// Handle /model command with optional model name.
-			if input == "/model" || strings.HasPrefix(input, "/model ") {
-				if input == "/model" {
-					fmt.Fprintf(os.Stdout, "Current model: %s\n", model)
-					// Show available models for switching.
-					modelInfos, err := listModelInfos(ctx, ollamaClient)
-					if err != nil {
-						printer.PrintWarning(fmt.Sprintf("Failed to list models: %v", err))
-					} else {
-						printer.PrintModelSuggestions(model, modelInfos)
-					}
-				} else {
-					// Extract model name from "/model <name>".
-					parts := strings.Fields(input)
-					if len(parts) == 2 {
-						newModel := parts[1]
-
-						if err := br.SetModel(ctx, newModel); err != nil {
-							printer.PrintError(fmt.Sprintf("Failed to switch to model %q: %v", newModel, err))
-							// Show suggestions on error.
-							modelInfos, err := listModelInfos(ctx, ollamaClient)
-							if err == nil {
-								printer.PrintModelAutocompleteHints(newModel, modelInfos)
-							}
-						} else {
-							model = newModel
-							fmt.Fprintf(os.Stdout, "✓ Switched to model: %s\n\n", model)
-						}
-					} else {
-						printer.PrintError("Usage: /model <name>")
-					}
-				}
-				continue
-			}
-
-			if input == "/stats" {
-				stats := br.GetStats()
-				statsInfo := ui.StatsInfo{
-					MessageCount:     stats.MessageCount,
-					ToolCallCount:    stats.ToolCallCount,
-					TotalDuration:    stats.TotalDuration,
-					IterationCount:   stats.IterationCount,
-					LastResponseTime: stats.LastResponseTime,
-					AverageLoopTime:  stats.AverageLoopTime,
-				}
-				printer.PrintStats(statsInfo)
-				continue
-			}
-
-			if input == "/servers" {
-				serverInfos := ui.GetServersTableInfo(mcpClient)
-				printer.PrintServerTable(serverInfos)
-				continue
-			}
-
-			if input == "/help" {
-				printer.PrintHelp()
-				continue
-			}
-
-			// Add user message to history.
-			history = append(history, ollama.Message{
-				Role:    "user",
-				Content: input,
-			})
-
-			// Run bridge.
-			response, err := br.ProcessMessage(ctx, history)
-			if err != nil {
-				printer.PrintError(err.Error())
-				continue
-			}
-
-			// Add response to history.
-			history = append(history, ollama.Message{
-				Role:    "assistant",
-				Content: response,
-			})
-
-			// Note: Response is already printed by the bridge during streaming.
-			// The PrintAssistantResponse call is skipped since the response
-			// is displayed in real-time as it streams from Ollama.
-		}
-	}
+	// Run the TUI chat.
+	return tui.RunChat(ctx, br, mcpClient, ollamaClient, printer, model, systemPrompt, verbose)
 }
 
 func runTools(ctx context.Context) error {

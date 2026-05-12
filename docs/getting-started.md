@@ -68,7 +68,7 @@ ollama pull gemma4:e4b
 mcp-setu chat
 ```
 
-You should see a banner with startup info. Start typing naturally:
+This opens a full-screen TUI. The input is pinned at the bottom; assistant messages, tool calls, and command output scroll above. Type naturally:
 
 ```
 ❯ what files are in this directory?
@@ -92,16 +92,17 @@ User sees the answer
 
 ## Explore Key Commands
 
-Once in the chat:
+Once in the chat, type `/` to open the slash-command autocomplete, navigate with `↑`/`↓`, and press `Tab` to accept. Use `↑`/`↓` (when not autocompleting) to recall previous inputs.
 
-| Command    | What it does              |
-|-----------|--------------------------|
-| `/tools`   | Show all available tools  |
-| `/models`  | Switch models             |
-| `/stats`   | Performance metrics       |
-| `/servers` | Connected MCP servers     |
-| `/help`    | Show all commands         |
-| `exit`     | Quit                      |
+| Command           | What it does              |
+|-------------------|---------------------------|
+| `/tools`          | Show all available tools  |
+| `/model [name]`   | Show or switch model      |
+| `/stats`          | Performance metrics       |
+| `/servers`        | Connected MCP servers     |
+| `/clear`          | Reset conversation        |
+| `/help`           | Show all commands         |
+| `/quit` / `/exit` | Quit (also `Ctrl+C`)      |
 
 Try `/tools` to see what MCP servers are connected.
 

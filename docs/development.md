@@ -24,11 +24,11 @@ make build
 ```
 mcp-setu/
 ├── cmd/mcp-setu/           # CLI entry point
-│   └── main.go             # Cobra commands & REPL loop
+│   └── main.go             # Cobra commands
 │
 ├── internal/
 │   ├── bridge/             # Agentic loop orchestrator
-│   │   ├── bridge.go
+│   │   ├── bridge.go       # Defines the Printer interface used by the loop
 │   │   ├── bridge_test.go
 │   │   └── stats.go
 │   │
@@ -48,7 +48,13 @@ mcp-setu/
 │   │   ├── client_test.go
 │   │   └── types.go
 │   │
-│   ├── ui/                 # Terminal output formatting
+│   ├── tui/                # Bubble Tea chat TUI
+│   │   ├── runner.go       # Entry point: builds SessionModel and runs tea
+│   │   ├── session.go      # Root model: layout, event loop, slash commands
+│   │   ├── input.go        # Input field with history & autocomplete
+│   │   └── printer.go      # bridge.Printer impl that emits TUI events
+│   │
+│   ├── ui/                 # Terminal output formatting (non-TUI commands)
 │   │   ├── printer.go
 │   │   └── printer_test.go
 │   │
@@ -300,7 +306,7 @@ GOFLAGS="-v" make build
 ./bin/mcp-setu chat --verbose
 ```
 
-Shows all tool calls and results.
+Shows all tool calls and LLM iterations inline in the chat TUI's output panel.
 
 ### Testing with Custom Config
 
@@ -337,7 +343,8 @@ mcp-setu validate       # Test with real config
 - **[MCP Specification](https://modelcontextprotocol.io/)** — Protocol details
 - **[Go Documentation](https://golang.org/doc/)** — Language reference
 - **[Cobra CLI Framework](https://cobra.dev/)** — Command documentation
-- **[Charm](https://charm.sh/)** — TUI styling library
+- **[Bubble Tea](https://github.com/charmbracelet/bubbletea)** — Chat TUI framework
+- **[Lipgloss](https://github.com/charmbracelet/lipgloss)** — Terminal styling
 
 ## Getting Help
 

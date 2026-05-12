@@ -35,6 +35,9 @@ features:
   - icon: 📊
     title: "Built-in Analytics"
     details: "Track response times, tool calls, and performance metrics with the /stats command."
+  - icon: 💬
+    title: "Modern Chat TUI"
+    details: "Full-screen Bubble Tea TUI with input pinned to the bottom, slash-command autocomplete, and ↑/↓ input history."
   - icon: 🔒
     title: "Secure by Default"
     details: "Full OAuth 2.1 support, environment-based credentials, and no secrets in config files."

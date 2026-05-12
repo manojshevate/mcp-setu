@@ -306,10 +306,11 @@ Requires **Go 1.26+**.
 mcp-setu chat --verbose
 ```
 
-This shows:
-- Tool calls being made
-- Tool results returned
-- Errors with full context
+In the chat TUI, this surfaces additional lines inline in the output panel:
+- `💭 Processing…` lines per LLM iteration
+- `⚙ <tool-name>` for each tool call
+- `↳ <result>` (truncated) for each tool result
+- Warnings (e.g., streaming fallback) prefixed with `⚠`
 
 ### Run validation
 
