@@ -16,8 +16,8 @@ Complete command-line reference for `mcp-setu`.
 
 ```
 --config string    Path to config file (default: mcp.json)
---verbose           Print tool calls and results to stderr
---help              Show help for a command
+--verbose          Show tool calls and LLM iterations in the chat TUI
+--help             Show help for a command
 ```
 
 ### Examples
@@ -38,7 +38,7 @@ mcp-setu chat --help
 
 ### chat
 
-Start an interactive multi-turn chat session with Ollama using configured MCP tools.
+Start an interactive multi-turn chat session with Ollama using configured MCP tools. The chat runs in a full-screen TUI: input is pinned to the bottom and assistant output scrolls in the panel above.
 
 ```bash
 mcp-setu chat [flags]
@@ -51,18 +51,29 @@ mcp-setu chat [flags]
 --system string     Override system prompt from config
 ```
 
-**REPL Commands** (once in chat):
+**Key bindings:**
 
-| Command | Purpose |
-|---------|---------|
-| `/tools` | List all available tools |
-| `/clear` | Clear conversation history |
-| `/model` | Show current model and available options |
-| `/model <name>` | Switch to a different model |
-| `/stats` | Show performance statistics |
-| `/servers` | Show connected MCP servers |
-| `/help` | Show REPL help |
-| `exit`/`quit` | Quit the session |
+| Keys                | What it does                            |
+|---------------------|-----------------------------------------|
+| `↑` / `↓`           | Cycle through previous inputs           |
+| `/`                 | Open slash-command autocomplete         |
+| `↑` / `↓` (in autocomplete) | Move selection                  |
+| `Tab`               | Accept the selected suggestion          |
+| `Enter`             | Submit                                  |
+| `Ctrl+C` / `Ctrl+D` | Exit                                    |
+
+**Chat commands** (typed at the prompt):
+
+| Command          | Purpose                                  |
+|------------------|------------------------------------------|
+| `/tools`         | List all available tools                 |
+| `/clear`         | Clear conversation history               |
+| `/model`         | Show current model and available options |
+| `/model <name>`  | Switch to a different model              |
+| `/stats`         | Show performance statistics              |
+| `/servers`       | Show connected MCP servers               |
+| `/help`          | Show chat help                           |
+| `/quit`, `/exit` | Quit the session                         |
 
 **Examples:**
 
@@ -79,7 +90,7 @@ mcp-setu chat --system "You are a Python expert"
 # Both
 mcp-setu chat --model qwen2.5:7b --system "Code review expert"
 
-# Use verbose mode
+# Verbose: show tool calls and LLM iterations in the TUI
 mcp-setu chat --verbose
 ```
 

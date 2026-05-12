@@ -135,37 +135,27 @@ alias claude-setu='mcp-setu --config ~/Library/Application\ Support/Claude/claud
 
 ## Example 5: Verbose Mode for Debugging
 
-See all tool calls and results:
+See tool calls and LLM iterations inline in the chat TUI:
 
 ```bash
 mcp-setu chat --verbose
 ```
 
-Output:
+Output panel (above the input line):
 
 ```
-❯ list files in current directory
-
-Tool call:
-{
-  "name": "read_directory",
-  "arguments": {"path": "."}
-}
-
-Tool result:
-{
-  "contents": [
-    {"name": "main.go", "type": "file", "size": 2048},
-    {"name": "config.json", "type": "file", "size": 512},
-    {"name": "README.md", "type": "file", "size": 4096}
-  ]
-}
-
-setu: Here are the files in the current directory:
-- main.go (2 KB)
-- config.json (512 B)
-- README.md (4 KB)
+you   list files in current directory
+  💭 Processing...
+  ⚙ read_directory
+  ↳ {"contents":[{"name":"main.go","size":2048},…]}
+setu  Here are the files in the current directory:
+      - main.go (2 KB)
+      - config.json (512 B)
+      - README.md (4 KB)
 ```
+
+Without `--verbose`, the `💭`/`⚙`/`↳` lines are hidden and you see only the
+final assistant message.
 
 ## Example 6: Model Switching
 
@@ -286,10 +276,12 @@ Performance Statistics
    mcp-setu tools
    ```
 
-5. **Use in scripts** (limited to one message):
+5. **For non-interactive use**, query tool metadata or run validation:
    ```bash
-   echo "what files are in ." | mcp-setu chat
+   mcp-setu tools          # list every tool
+   mcp-setu validate       # exit non-zero on config/connection errors
    ```
+   The `chat` command itself requires an interactive terminal (TUI).
 
 ## Next Steps
 

@@ -8,13 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - v0.2.0-dev
 
 ### Added
-- TBD
+- Modern full-screen chat TUI built on Bubble Tea: input is pinned to the
+  bottom, output scrolls above, with `/`-triggered slash-command autocomplete
+  (Tab to accept), `↑`/`↓` input history, and `Ctrl+C`/`Ctrl+D` to exit.
+- New `/quit` and `/exit` slash commands (in addition to legacy `exit`/`quit`).
+- `bridge.Printer` interface so different front-ends (CLI and TUI) can plug
+  into the agentic loop without writing directly to stdout/stderr.
 
 ### Fixed
-- TBD
+- Duplicate/garbled banner and missing input visibility when launching `chat`
+  (banner was printed twice before the TUI started); banner is now rendered
+  inside the TUI's initial output area.
+- `--verbose` is now honored inside the chat TUI: tool calls, LLM iterations,
+  and tool results appear inline in the output panel only when the flag is set.
 
 ### Changed
-- TBD
+- README rewritten to be short and crisp; long-form content now lives in
+  `docs/`.
 
 ### Deprecated
 - TBD
