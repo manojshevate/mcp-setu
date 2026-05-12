@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -108,7 +109,7 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *SessionModel) processCmd(input string) tea.Cmd {
 	return func() tea.Msg {
-		// Handle special commands
+		// Handle special commands - return as messages instead of printing
 		if input == "exit" || input == "quit" {
 			m.quitting = true
 			return nil
@@ -116,50 +117,75 @@ func (m *SessionModel) processCmd(input string) tea.Cmd {
 
 		if input == "/tools" {
 			tools := ui.GetToolsTableFromMCP(m.mcpClient)
-			m.printer.PrintToolsTable(tools)
+			var lines []string
+			lines = append(lines, "Available Tools:")
+			for _, t := range tools {
+				lines = append(lines, "  • "+t.Name+" ("+t.Server+"): "+t.Description)
+			}
+			m.output = append(m.output, strings.Join(lines, "\n"))
 			return nil
 		}
 
 		if input == "/clear" {
 			m.history = []ollama.Message{{Role: "system", Content: m.history[0].Content}}
-			m.output = []string{}
+			m.output = []string{"Conversation cleared."}
 			return nil
 		}
 
 		if input == "/servers" {
 			servers := ui.GetServersTableInfo(m.mcpClient)
-			m.printer.PrintServerTable(servers)
+			var lines []string
+			lines = append(lines, "Connected MCP Servers:")
+			for _, s := range servers {
+				lines = append(lines, "  • "+s.Name+" ("+string(rune(s.Tools))+" tools)")
+			}
+			m.output = append(m.output, strings.Join(lines, "\n"))
 			return nil
 		}
 
 		if input == "/stats" {
 			stats := m.br.GetStats()
-			statsInfo := ui.StatsInfo{
-				MessageCount:     stats.MessageCount,
-				ToolCallCount:    stats.ToolCallCount,
-				TotalDuration:    stats.TotalDuration,
-				IterationCount:   stats.IterationCount,
-				LastResponseTime: stats.LastResponseTime,
-				AverageLoopTime:  stats.AverageLoopTime,
-			}
-			m.printer.PrintStats(statsInfo)
+			info := fmt.Sprintf(
+				"Stats: %d messages, %d tool calls, %d iterations, %v total time",
+				stats.MessageCount, stats.ToolCallCount, stats.IterationCount, stats.TotalDuration)
+			m.output = append(m.output, info)
 			return nil
 		}
 
 		if input == "/help" {
-			m.printer.PrintHelp()
+			help := `Commands:
+  /tools        - List available tools
+  /servers      - Show connected servers
+  /model [name] - Switch model
+  /stats        - View performance stats
+  /clear        - Clear conversation
+  /help         - Show this help
+  exit/quit     - Exit`
+			m.output = append(m.output, help)
 			return nil
 		}
 
 		if input == "/model" || strings.HasPrefix(input, "/model ") {
 			if input == "/model" {
 				models, _ := listModelInfos(m.ctx, m.ollamaClient)
-				m.printer.PrintModelSuggestions(m.model, models)
+				var lines []string
+				lines = append(lines, "Available Models:")
+				for _, model := range models {
+					marker := ""
+					if model.Name == m.model {
+						marker = " (current)"
+					}
+					lines = append(lines, "  • "+model.Name+" ("+model.Size+")"+marker)
+				}
+				m.output = append(m.output, strings.Join(lines, "\n"))
 			} else {
 				parts := strings.Fields(input)
 				if len(parts) == 2 {
 					if err := m.br.SetModel(m.ctx, parts[1]); err == nil {
 						m.model = parts[1]
+						m.output = append(m.output, "Switched to model: "+parts[1])
+					} else {
+						m.output = append(m.output, "Error switching model: "+err.Error())
 					}
 				}
 			}
