@@ -102,6 +102,13 @@ func (b *Bridge) GetStats() Stats {
 	return b.stats
 }
 
+// SetPrinter updates the printer (used by TUI to inject its own printer).
+func (b *Bridge) SetPrinter(p *ui.Printer) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.printer = p
+}
+
 // ProcessMessage runs the agentic loop for a user message.
 func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) (string, error) {
 	start := time.Now()

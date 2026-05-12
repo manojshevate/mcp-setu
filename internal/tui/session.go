@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,15 +24,17 @@ type SessionModel struct {
 	br           *bridge.Bridge
 	mcpClient    *mcp.MultiClient
 	ollamaClient *ollama.Client
-	printer      *ui.Printer
+	printer      *TUIPrinter
 	history      []ollama.Message
 	model        string
 
 	// UI
-	input    InputModel
-	output   []string // Chat messages to display
-	status   string
-	quitting bool
+	input       InputModel
+	output      []string // All messages (user, assistant, verbose output)
+	msgChan     chan string
+	status      string
+	quitting    bool
+	currentResp string // Buffer for streaming response
 }
 
 func NewSessionModel(
@@ -47,21 +50,25 @@ func NewSessionModel(
 		{Role: "system", Content: systemPrompt},
 	}
 
+	msgChan := make(chan string, 100)
+	tuiPrinter := NewTUIPrinter(printer, msgChan)
+
 	return SessionModel{
 		ctx:          ctx,
 		br:           br,
 		mcpClient:    mcpClient,
 		ollamaClient: ollamaClient,
-		printer:      printer,
+		printer:      tuiPrinter,
 		history:      history,
 		model:        model,
 		input:        NewInputModel(),
 		output:       []string{},
+		msgChan:      msgChan,
 	}
 }
 
 func (m SessionModel) Init() tea.Cmd {
-	return nil
+	return m.pollMessages()
 }
 
 func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -94,17 +101,43 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ResponseMsg:
-		m.output = append(m.output, "Assistant: "+msg.Content)
-		m.status = ""
+		m.currentResp += msg.Content
 		return m, nil
+
+	case ResponseEndMsg:
+		if m.currentResp != "" {
+			m.output = append(m.output, "Assistant: "+m.currentResp)
+			m.currentResp = ""
+		}
+		m.status = ""
+		return m, m.pollMessages()
 
 	case ErrorMsg:
 		m.output = append(m.output, "Error: "+msg.Error)
 		m.status = ""
-		return m, nil
+		return m, m.pollMessages()
+
+	case MessageMsg:
+		m.output = append(m.output, msg.Text)
+		return m, m.pollMessages()
 	}
 
 	return m, nil
+}
+
+func (m SessionModel) pollMessages() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case msg := <-m.msgChan:
+			return MessageMsg{Text: msg}
+		case <-time.After(50 * time.Millisecond):
+			return MessageMsg{Text: ""}
+		}
+	}
+}
+
+type MessageMsg struct {
+	Text string
 }
 
 func (m *SessionModel) processCmd(input string) tea.Cmd {
@@ -192,15 +225,17 @@ func (m *SessionModel) processCmd(input string) tea.Cmd {
 			return nil
 		}
 
-		// Process message
+		// Process message - bridge will use the TUI printer which sends to msgChan
 		m.history = append(m.history, ollama.Message{Role: "user", Content: input})
 		response, err := m.br.ProcessMessage(m.ctx, m.history)
 		if err != nil {
+			m.status = ""
 			return ErrorMsg{Error: err.Error()}
 		}
 
 		m.history = append(m.history, ollama.Message{Role: "assistant", Content: response})
-		return ResponseMsg{Content: response}
+		m.status = ""
+		return ResponseEndMsg{}
 	}
 }
 
@@ -209,20 +244,31 @@ func (m SessionModel) View() string {
 		return "Loading..."
 	}
 
-	// Input area
-	inputView := "❯ " + m.input.View()
+	// Input section (fixed at bottom)
+	inputLine := "❯ " + m.input.View()
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(strings.Repeat("─", m.width))
 
-	// Separator
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", m.width))
-
-	// Status
+	// Status line
 	statusLine := ""
 	if m.status != "" {
-		statusLine = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(m.status) + "\n"
+		statusStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Faint(true)
+		statusLine = statusStyle.Render(m.status) + "\n"
 	}
 
-	// Output area (scrollable)
-	outputHeight := m.height - 4
+	// Bottom panel (input + status)
+	bottomHeight := 3
+	if m.status != "" {
+		bottomHeight = 4
+	}
+
+	// Output area (everything above input)
+	outputHeight := m.height - bottomHeight - 1
+
+	// Show latest messages that fit
 	startIdx := 0
 	if len(m.output) > outputHeight {
 		startIdx = len(m.output) - outputHeight
@@ -233,14 +279,27 @@ func (m SessionModel) View() string {
 		outputLines = append(outputLines, m.output[i])
 	}
 
-	output := strings.Join(outputLines, "\n")
+	// Add streaming response if any
+	if m.currentResp != "" {
+		outputLines = append(outputLines, "Assistant: "+m.currentResp)
+	}
 
-	return output + "\n" + sep + "\n" + statusLine + inputView
+	// Fill remaining space
+	output := strings.Join(outputLines, "\n")
+	fillerLines := outputHeight - len(outputLines)
+	if fillerLines > 0 {
+		output = strings.Repeat("\n", fillerLines) + output
+	}
+
+	// Combine: messages on top, separator, status, input at bottom
+	return output + "\n" + separator + "\n" + statusLine + inputLine
 }
 
 type ResponseMsg struct {
 	Content string
 }
+
+type ResponseEndMsg struct{}
 
 type ErrorMsg struct {
 	Error string

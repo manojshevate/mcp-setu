@@ -31,15 +31,19 @@ func RunChat(
 	// Add spacing
 	fmt.Fprintf(os.Stdout, "\n")
 
+	// Create session (which creates TUI printer channel)
 	sessionModel := NewSessionModel(
 		ctx,
 		br,
 		mcpClient,
 		ollamaClient,
-		printer,
+		printer, // Original printer (ignored, TUI creates its own)
 		model,
 		systemPrompt,
 	)
+
+	// The TUI printer will capture output via the message channel
+	// The original printer is still used but TUI printer wraps it
 
 	p := tea.NewProgram(sessionModel, tea.WithAltScreen())
 	_, err := p.Run()
