@@ -145,7 +145,14 @@ func (m InputModel) View() string {
 	// Visible part of input
 	inputDisplay := m.value
 	if len(inputDisplay) > m.width-4 {
-		inputDisplay = "…" + inputDisplay[len(inputDisplay)-m.width+5:]
+		startIdx := len(inputDisplay) - (m.width - 5)
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		if startIdx > len(inputDisplay) {
+			startIdx = len(inputDisplay)
+		}
+		inputDisplay = "…" + inputDisplay[startIdx:]
 	}
 
 	// Build the input line
