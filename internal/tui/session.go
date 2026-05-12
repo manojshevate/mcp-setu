@@ -13,20 +13,9 @@ import (
 )
 
 type SessionModel struct {
-	// Layout
-	width  int
-	height int
-
-	// Components
-	input    InputModel
-	response ResponseModel
-	status   StatusModel
-
-	// State
-	processing bool
-	quitting   bool
-
-	// Context and dependencies
+	width        int
+	height       int
+	input        InputModel
 	ctx          context.Context
 	br           *bridge.Bridge
 	mcpClient    *mcp.MultiClient
@@ -34,6 +23,8 @@ type SessionModel struct {
 	printer      *ui.Printer
 	history      []ollama.Message
 	model        string
+	processing   bool
+	lastResponse string
 }
 
 func NewSessionModel(
@@ -61,8 +52,6 @@ func NewSessionModel(
 		history:      history,
 		model:        model,
 		input:        NewInputModel(),
-		response:     NewResponseModel(),
-		status:       NewStatusModel(),
 	}
 }
 
@@ -75,78 +64,67 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.SetWidth(m.width - 2)
-		m.response.SetSize(m.width-2, m.height-6)
+		m.input.SetWidth(m.width - 4)
 		return m, nil
 
 	case tea.KeyMsg:
+		// Ctrl+C or Ctrl+D to quit
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
 			return m, tea.Quit
 		}
 
-		// Handle Enter key
-		if msg.Type == tea.KeyEnter {
+		// Enter to submit
+		if msg.Type == tea.KeyEnter && !m.processing {
 			input := m.input.GetValue()
 			if input != "" {
 				m.input.AddToHistory(input)
 				m.input.Clear()
-				return m, m.processInput(input)
+				return m, m.submitInput(input)
 			}
 			return m, nil
 		}
 
-		// All other keys go to input
+		// Pass other keys to input
 		updatedInput, cmd := m.input.Update(msg)
 		m.input = updatedInput.(InputModel)
 		return m, cmd
-
-	case StreamChunkMsg:
-		m.response.AddChunk(msg.Content)
-		return m, nil
-
-	case StreamEndMsg:
-		m.processing = false
-		return m, nil
 	}
 
 	return m, nil
 }
 
-func (m *SessionModel) processInput(input string) tea.Cmd {
+func (m *SessionModel) submitInput(input string) tea.Cmd {
 	return func() tea.Msg {
 		// Handle special commands
 		if handled, _ := m.handleSpecialCommand(input); handled {
 			return nil
 		}
 
-		// Process regular message
 		m.processing = true
-		m.response.Clear()
+		defer func() { m.processing = false }()
 
-		newHistory := append(m.history, ollama.Message{
+		// Add user message
+		m.history = append(m.history, ollama.Message{
 			Role:    "user",
 			Content: input,
 		})
 
-		// Process message (already streams via printer)
-		response, err := m.br.ProcessMessage(m.ctx, newHistory)
-
+		// Process message (printer handles output to stderr)
+		response, err := m.br.ProcessMessage(m.ctx, m.history)
 		if err != nil {
 			m.printer.PrintError(err.Error())
-			m.processing = false
+			m.history = m.history[:len(m.history)-1] // Remove user message on error
 			return nil
 		}
 
-		// Add to history
-		m.history = append(newHistory, ollama.Message{
+		// Add response to history
+		m.history = append(m.history, ollama.Message{
 			Role:    "assistant",
 			Content: response,
 		})
 
-		m.response.AddChunk(response)
-		m.processing = false
-
-		return StreamEndMsg{}
+		m.lastResponse = response
+		return nil
 	}
 }
 
@@ -225,32 +203,39 @@ func (m *SessionModel) handleSpecialCommand(input string) (bool, error) {
 }
 
 func (m SessionModel) View() string {
-	if m.quitting {
-		return ""
-	}
-
 	if m.width == 0 || m.height == 0 {
 		return "Loading..."
 	}
 
-	// Response area (top)
-	responseView := m.response.View()
+	// Simple layout: input at bottom with styling
+	promptStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("63")).
+		Bold(true)
 
-	// Status line (middle)
-	statusView := m.status.View(m.processing)
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(1, 2)
 
-	// Input area (bottom)
-	inputView := m.input.View()
+	statusText := ""
+	if m.processing {
+		statusText = "⟳ Processing..."
+	}
 
-	// Combine vertically
-	content := lipgloss.JoinVertical(
-		lipgloss.Left,
-		responseView,
-		statusView,
-		inputView,
+	inputSection := borderStyle.Render(
+		promptStyle.Render("❯ ") + m.input.View(),
 	)
 
-	return content
+	// Show status if processing
+	if m.processing {
+		statusStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Faint(true).
+			Padding(0, 2)
+		return statusStyle.Render(statusText) + "\n" + inputSection
+	}
+
+	return inputSection
 }
 
 func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
@@ -267,10 +252,3 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 	}
 	return infos, nil
 }
-
-// Custom messages
-type StreamChunkMsg struct {
-	Content string
-}
-
-type StreamEndMsg struct{}
