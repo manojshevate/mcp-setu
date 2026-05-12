@@ -174,31 +174,42 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 }
 
 // processMessageWithStreaming handles streaming response from Ollama and collects tool calls.
-// Returns the full message and a flag indicating whether the response was already printed.
 func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error) {
 	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature)
 	if err != nil {
 		// Fall back to non-streaming if streaming fails
 		b.printer.PrintWarning(fmt.Sprintf("Streaming failed, falling back to non-streaming mode: %v", err))
-		return b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
+		msg, chatErr := b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
+		if chatErr != nil {
+			return nil, chatErr
+		}
+		// CRITICAL: print the fallback response — REPL no longer does this
+		if msg != nil && msg.Content != "" {
+			b.printer.PrintResponseStart()
+			b.printer.PrintResponseChunk(msg.Content)
+			b.printer.PrintResponseEnd()
+		}
+		return msg, nil
 	}
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
-
-	// Start printing response before any content arrives for immediate feedback
-	b.printer.PrintResponseStart()
+	started := false
 
 	// Stream chunks as they arrive in real-time
 	for event := range streamChan {
 		// Check for stream errors
 		if event.Err != nil {
 			b.printer.PrintWarning(fmt.Sprintf("Stream error encountered: %v", event.Err))
-			// Continue processing with collected data so far
+			continue
 		}
 
-		// Accumulate content
+		// Only start printing when we get actual content (avoid empty frames on tool-only iterations)
 		if event.Content != "" {
+			if !started {
+				b.printer.PrintResponseStart()
+				started = true
+			}
 			fullContent.WriteString(event.Content)
 			b.printer.PrintResponseChunk(event.Content)
 		}
@@ -209,7 +220,10 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		}
 	}
 
-	b.printer.PrintResponseEnd()
+	// Only print end if we actually started printing
+	if started {
+		b.printer.PrintResponseEnd()
+	}
 
 	msg := &ollama.Message{
 		Role:      "assistant",
