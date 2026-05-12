@@ -14,27 +14,49 @@ import (
 	"github.com/manojshevate/mcp-setu/internal/ui"
 )
 
-type SessionModel struct {
-	// Terminal
-	width  int
-	height int
+// Styling.
+var (
+	stylePrompt    = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Bold(true)
+	styleUser      = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Bold(true)
+	styleAssistant = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
+	styleMuted     = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
+	styleWarning   = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
+	styleError     = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
+	styleSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("#374151"))
+)
 
-	// Data
+// SessionModel is the root Bubble Tea model. The layout is strictly:
+//
+//	┌────────────────────────────────────┐
+//	│ output area (scrolling)            │
+//	│ ...                                │
+//	├────────────────────────────────────┤
+//	│ status (only when processing)      │
+//	│ ❯ input                            │
+//	└────────────────────────────────────┘
+type SessionModel struct {
+	// terminal
+	width, height int
+
+	// deps
 	ctx          context.Context
 	br           *bridge.Bridge
 	mcpClient    *mcp.MultiClient
 	ollamaClient *ollama.Client
-	printer      *TUIPrinter
-	history      []ollama.Message
 	model        string
 
-	// UI
+	// chat state
+	history []ollama.Message
+
+	// rendering
+	output      []string // logical lines (already split on '\n')
 	input       InputModel
-	output      []string // All messages (user, assistant, verbose output)
-	msgChan     chan string
+	respBuf     strings.Builder // accumulates streaming chunks
+	respActive  bool
 	status      string
-	quitting    bool
-	currentResp string // Buffer for streaming response
+	processing  bool
+	eventCh     chan Event
+	printerWire bool // set true after the TUI printer is installed on the bridge
 }
 
 func NewSessionModel(
@@ -42,37 +64,58 @@ func NewSessionModel(
 	br *bridge.Bridge,
 	mcpClient *mcp.MultiClient,
 	ollamaClient *ollama.Client,
-	printer *ui.Printer,
 	model string,
 	systemPrompt string,
 ) SessionModel {
-	history := []ollama.Message{
-		{Role: "system", Content: systemPrompt},
-	}
+	eventCh := make(chan Event, 1024)
 
-	msgChan := make(chan string, 100)
-	tuiPrinter := NewTUIPrinter(printer, msgChan)
-
-	return SessionModel{
+	m := SessionModel{
 		ctx:          ctx,
 		br:           br,
 		mcpClient:    mcpClient,
 		ollamaClient: ollamaClient,
-		printer:      tuiPrinter,
-		history:      history,
 		model:        model,
+		history:      []ollama.Message{{Role: "system", Content: systemPrompt}},
 		input:        NewInputModel(),
-		output:       []string{},
-		msgChan:      msgChan,
+		eventCh:      eventCh,
 	}
+	m.appendBanner()
+	return m
+}
+
+// appendBanner adds the welcome banner and connected-server list to the output.
+func (m *SessionModel) appendBanner() {
+	servers := ui.GetServersTableInfo(m.mcpClient)
+	serverCount := len(servers)
+	toolCount := len(m.mcpClient.GetAllTools())
+
+	m.output = append(m.output,
+		stylePrompt.Render("Welcome to mcp-setu"),
+		"",
+		fmt.Sprintf("  %s  %s", styleMuted.Render("Model    "), m.model),
+		fmt.Sprintf("  %s  %d connected · %d tools", styleMuted.Render("Servers  "), serverCount, toolCount),
+		"",
+	)
+	if serverCount > 0 {
+		m.output = append(m.output, styleMuted.Render("  Servers:"))
+		for _, s := range servers {
+			m.output = append(m.output, fmt.Sprintf("    • %s (%d tools)", s.Name, s.Tools))
+		}
+		m.output = append(m.output, "")
+	}
+	m.output = append(m.output,
+		styleMuted.Render("  Type /help for commands, /quit to exit. ↑/↓ for history."),
+		strings.Repeat("─", 40),
+	)
 }
 
 func (m SessionModel) Init() tea.Cmd {
-	return m.pollMessages()
+	return m.waitForEvent()
 }
 
 func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -80,229 +123,346 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Always allow Ctrl+C / Ctrl+D to exit.
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
 			return m, tea.Quit
 		}
-
-		if msg.Type == tea.KeyEnter {
-			input := m.input.GetValue()
-			if input != "" {
-				m.input.AddToHistory(input)
-				m.output = append(m.output, "You: "+input)
-				m.input.Clear()
-				m.status = "⟳ Processing..."
-				return m, m.processCmd(input)
-			}
+		// Ignore keystrokes while a request is in flight (except quit).
+		if m.processing {
 			return m, nil
 		}
+		if msg.Type == tea.KeyEnter {
+			value := m.input.GetValue()
+			if value == "" {
+				return m, nil
+			}
+			m.input.AddToHistory(value)
+			m.appendUser(value)
+			m.input.Clear()
 
-		updatedInput, _ := m.input.Update(msg)
-		m.input = updatedInput.(InputModel)
-		return m, nil
+			if cmd, handled := m.handleSlashCommand(value); handled {
+				return m, cmd
+			}
 
-	case ResponseMsg:
-		m.currentResp += msg.Content
-		return m, nil
+			// Install the TUI printer on the bridge exactly once, just-in-time.
+			if !m.printerWire {
+				m.br.SetPrinter(NewPrinter(m.eventCh))
+				m.printerWire = true
+			}
 
-	case ResponseEndMsg:
-		if m.currentResp != "" {
-			m.output = append(m.output, "Assistant: "+m.currentResp)
-			m.currentResp = ""
+			m.history = append(m.history, ollama.Message{Role: "user", Content: value})
+			m.processing = true
+			m.status = "⟳ thinking…"
+			return m, tea.Batch(m.runBridge(value), m.waitForEvent())
 		}
-		m.status = ""
-		return m, m.pollMessages()
+		updated, _ := m.input.Update(msg)
+		m.input = updated.(InputModel)
+		return m, nil
 
-	case ErrorMsg:
-		m.output = append(m.output, "Error: "+msg.Error)
-		m.status = ""
-		return m, m.pollMessages()
+	case eventMsg:
+		m.handleEvent(msg.ev)
+		return m, m.waitForEvent()
 
-	case MessageMsg:
-		m.output = append(m.output, msg.Text)
-		return m, m.pollMessages()
+	case tickMsg:
+		return m, m.waitForEvent()
+
+	case bridgeDoneMsg:
+		m.processing = false
+		m.status = ""
+		if msg.err != nil {
+			m.appendError(msg.err.Error())
+		} else if msg.content != "" && !m.respActive {
+			// Non-streaming path returned content but no chunks came through.
+			m.appendAssistant(msg.content)
+		}
+		m.history = append(m.history, ollama.Message{Role: "assistant", Content: msg.content})
+		return m, m.waitForEvent()
+
+	case quitMsg:
+		return m, tea.Quit
 	}
 
 	return m, nil
 }
 
-func (m SessionModel) pollMessages() tea.Cmd {
-	return func() tea.Msg {
-		select {
-		case msg := <-m.msgChan:
-			return MessageMsg{Text: msg}
-		case <-time.After(50 * time.Millisecond):
-			return MessageMsg{Text: ""}
-		}
-	}
-}
-
-type MessageMsg struct {
-	Text string
-}
-
-func (m *SessionModel) processCmd(input string) tea.Cmd {
-	return func() tea.Msg {
-		// Handle special commands - return as messages instead of printing
-		if input == "exit" || input == "quit" {
-			m.quitting = true
-			return nil
-		}
-
-		if input == "/tools" {
-			tools := ui.GetToolsTableFromMCP(m.mcpClient)
-			var lines []string
-			lines = append(lines, "Available Tools:")
-			for _, t := range tools {
-				lines = append(lines, "  • "+t.Name+" ("+t.Server+"): "+t.Description)
-			}
-			m.output = append(m.output, strings.Join(lines, "\n"))
-			return nil
-		}
-
-		if input == "/clear" {
-			m.history = []ollama.Message{{Role: "system", Content: m.history[0].Content}}
-			m.output = []string{"Conversation cleared."}
-			return nil
-		}
-
-		if input == "/servers" {
-			servers := ui.GetServersTableInfo(m.mcpClient)
-			var lines []string
-			lines = append(lines, "Connected MCP Servers:")
-			for _, s := range servers {
-				lines = append(lines, "  • "+s.Name+" ("+string(rune(s.Tools))+" tools)")
-			}
-			m.output = append(m.output, strings.Join(lines, "\n"))
-			return nil
-		}
-
-		if input == "/stats" {
-			stats := m.br.GetStats()
-			info := fmt.Sprintf(
-				"Stats: %d messages, %d tool calls, %d iterations, %v total time",
-				stats.MessageCount, stats.ToolCallCount, stats.IterationCount, stats.TotalDuration)
-			m.output = append(m.output, info)
-			return nil
-		}
-
-		if input == "/help" {
-			help := `Commands:
-  /tools        - List available tools
-  /servers      - Show connected servers
-  /model [name] - Switch model
-  /stats        - View performance stats
-  /clear        - Clear conversation
-  /help         - Show this help
-  exit/quit     - Exit`
-			m.output = append(m.output, help)
-			return nil
-		}
-
-		if input == "/model" || strings.HasPrefix(input, "/model ") {
-			if input == "/model" {
-				models, _ := listModelInfos(m.ctx, m.ollamaClient)
-				var lines []string
-				lines = append(lines, "Available Models:")
-				for _, model := range models {
-					marker := ""
-					if model.Name == m.model {
-						marker = " (current)"
-					}
-					lines = append(lines, "  • "+model.Name+" ("+model.Size+")"+marker)
-				}
-				m.output = append(m.output, strings.Join(lines, "\n"))
-			} else {
-				parts := strings.Fields(input)
-				if len(parts) == 2 {
-					if err := m.br.SetModel(m.ctx, parts[1]); err == nil {
-						m.model = parts[1]
-						m.output = append(m.output, "Switched to model: "+parts[1])
-					} else {
-						m.output = append(m.output, "Error switching model: "+err.Error())
-					}
-				}
-			}
-			return nil
-		}
-
-		// Process message - bridge will use the TUI printer which sends to msgChan
-		m.history = append(m.history, ollama.Message{Role: "user", Content: input})
-		response, err := m.br.ProcessMessage(m.ctx, m.history)
-		if err != nil {
-			m.status = ""
-			return ErrorMsg{Error: err.Error()}
-		}
-
-		m.history = append(m.history, ollama.Message{Role: "assistant", Content: response})
-		m.status = ""
-		return ResponseEndMsg{}
-	}
-}
-
+// View renders the screen: output area on top, separator, optional status, input pinned at bottom.
 func (m SessionModel) View() string {
-	if m.width == 0 {
-		return "Loading..."
+	if m.width == 0 || m.height == 0 {
+		return ""
 	}
 
-	// Input section (fixed at bottom)
-	inputLine := "❯ " + m.input.View()
-	separator := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render(strings.Repeat("─", m.width))
-
-	// Status line
+	// Bottom-pinned chrome.
+	separator := styleSeparator.Render(strings.Repeat("─", m.width))
+	inputLine := stylePrompt.Render("❯ ") + m.input.View()
 	statusLine := ""
 	if m.status != "" {
-		statusStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Faint(true)
-		statusLine = statusStyle.Render(m.status) + "\n"
+		statusLine = styleMuted.Render(m.status)
 	}
 
-	// Bottom panel (input + status)
-	bottomHeight := 3
-	if m.status != "" {
-		bottomHeight = 4
+	// Calculate how many rows the bottom chrome consumes.
+	// separator (1) + optional status (1) + input (1 plus AC dropdown lines if any).
+	inputLines := strings.Count(m.input.View(), "\n") + 1
+	chromeHeight := 1 + inputLines
+	if statusLine != "" {
+		chromeHeight++
+	}
+	outputHeight := m.height - chromeHeight
+	if outputHeight < 1 {
+		outputHeight = 1
 	}
 
-	// Output area (everything above input)
-	outputHeight := m.height - bottomHeight - 1
+	// Build visible output: word-wrap each logical line to the terminal width,
+	// then take the trailing N visual lines so newest content is at the bottom.
+	visual := m.renderOutputLines(outputHeight)
 
-	// Show latest messages that fit
-	startIdx := 0
-	if len(m.output) > outputHeight {
-		startIdx = len(m.output) - outputHeight
+	// Pad the top so output hugs the bottom (against the separator).
+	if pad := outputHeight - len(visual); pad > 0 {
+		visual = append(make([]string, pad), visual...)
 	}
 
-	var outputLines []string
-	for i := startIdx; i < len(m.output); i++ {
-		outputLines = append(outputLines, m.output[i])
+	parts := []string{strings.Join(visual, "\n"), separator}
+	if statusLine != "" {
+		parts = append(parts, statusLine)
 	}
-
-	// Add streaming response if any
-	if m.currentResp != "" {
-		outputLines = append(outputLines, "Assistant: "+m.currentResp)
-	}
-
-	// Fill remaining space
-	output := strings.Join(outputLines, "\n")
-	fillerLines := outputHeight - len(outputLines)
-	if fillerLines > 0 {
-		output = strings.Repeat("\n", fillerLines) + output
-	}
-
-	// Combine: messages on top, separator, status, input at bottom
-	return output + "\n" + separator + "\n" + statusLine + inputLine
+	parts = append(parts, inputLine)
+	return strings.Join(parts, "\n")
 }
 
-type ResponseMsg struct {
-	Content string
+// renderOutputLines word-wraps all output (including the in-progress response
+// buffer) and returns the trailing `cap` visual rows.
+func (m SessionModel) renderOutputLines(cap int) []string {
+	wrapWidth := m.width
+	if wrapWidth < 1 {
+		wrapWidth = 80
+	}
+
+	var visual []string
+	add := func(s string) {
+		for _, line := range strings.Split(s, "\n") {
+			visual = append(visual, wrapLine(line, wrapWidth)...)
+		}
+	}
+	for _, line := range m.output {
+		add(line)
+	}
+	if m.respActive {
+		buf := m.respBuf.String()
+		if buf != "" {
+			add(styleAssistant.Render("setu  ") + buf)
+		}
+	}
+
+	if len(visual) > cap {
+		visual = visual[len(visual)-cap:]
+	}
+	return visual
 }
 
-type ResponseEndMsg struct{}
+// wrapLine breaks a single visual line at terminal width, preserving any
+// already-styled ANSI sequences as a single chunk where possible.
+func wrapLine(s string, width int) []string {
+	if width < 1 {
+		return []string{s}
+	}
+	// lipgloss's Width does the right thing for ANSI-styled text.
+	w := lipgloss.Width(s)
+	if w <= width {
+		return []string{s}
+	}
+	// Fall back to plain-byte chunking for very long output (tool dumps).
+	// This is imperfect for styled text but safe.
+	var out []string
+	for len(s) > 0 {
+		if len(s) <= width {
+			out = append(out, s)
+			break
+		}
+		out = append(out, s[:width])
+		s = s[width:]
+	}
+	return out
+}
 
-type ErrorMsg struct {
-	Error string
+// ───────────────────────── event handling ─────────────────────────
+
+func (m *SessionModel) handleEvent(ev Event) {
+	switch ev.Kind {
+	case EventLog:
+		m.output = append(m.output, styleMuted.Render("  "+ev.Text))
+	case EventWarning:
+		m.output = append(m.output, styleWarning.Render("⚠ "+ev.Text))
+	case EventError:
+		m.appendError(ev.Text)
+	case EventRespStart:
+		m.respBuf.Reset()
+		m.respActive = true
+	case EventRespChunk:
+		m.respBuf.WriteString(ev.Text)
+	case EventRespEnd:
+		if m.respActive {
+			final := m.respBuf.String()
+			m.respBuf.Reset()
+			m.respActive = false
+			if strings.TrimSpace(final) != "" {
+				m.appendAssistant(final)
+			}
+		}
+	}
+}
+
+func (m *SessionModel) appendUser(text string) {
+	prefix := styleUser.Render("you   ")
+	m.output = append(m.output, prefix+text)
+}
+
+func (m *SessionModel) appendAssistant(text string) {
+	prefix := styleAssistant.Render("setu  ")
+	// Preserve internal newlines.
+	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	for i, line := range lines {
+		if i == 0 {
+			m.output = append(m.output, prefix+line)
+		} else {
+			m.output = append(m.output, "      "+line)
+		}
+	}
+	m.output = append(m.output, "")
+}
+
+func (m *SessionModel) appendError(msg string) {
+	m.output = append(m.output, styleError.Render("error: ")+msg)
+}
+
+// ───────────────────────── commands ─────────────────────────
+
+func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
+	switch {
+	case input == "/quit" || input == "/exit" || input == "exit" || input == "quit":
+		return func() tea.Msg { return quitMsg{} }, true
+
+	case input == "/help":
+		m.appendInfo([]string{
+			"Commands:",
+			"  /tools          List available tools",
+			"  /servers        Show connected MCP servers",
+			"  /model [name]   Show or switch model",
+			"  /stats          Show performance stats",
+			"  /clear          Clear conversation history",
+			"  /help           Show this help",
+			"  /quit, /exit    Exit",
+		})
+		return nil, true
+
+	case input == "/tools":
+		tools := ui.GetToolsTableFromMCP(m.mcpClient)
+		lines := []string{"Available tools:"}
+		for _, t := range tools {
+			lines = append(lines, fmt.Sprintf("  • %s  %s  %s", t.Name, styleMuted.Render("("+t.Server+")"), t.Description))
+		}
+		if len(tools) == 0 {
+			lines = append(lines, "  (none)")
+		}
+		m.appendInfo(lines)
+		return nil, true
+
+	case input == "/servers":
+		servers := ui.GetServersTableInfo(m.mcpClient)
+		lines := []string{"Connected servers:"}
+		for _, s := range servers {
+			lines = append(lines, fmt.Sprintf("  • %s — %d tools", s.Name, s.Tools))
+		}
+		m.appendInfo(lines)
+		return nil, true
+
+	case input == "/stats":
+		st := m.br.GetStats()
+		m.appendInfo([]string{
+			fmt.Sprintf("Stats: %d messages · %d tool calls · %d iterations · %s total",
+				st.MessageCount, st.ToolCallCount, st.IterationCount, st.TotalDuration.Round(time.Millisecond)),
+		})
+		return nil, true
+
+	case input == "/clear":
+		sys := m.history[0]
+		m.history = []ollama.Message{sys}
+		m.output = m.output[:0]
+		m.appendBanner()
+		m.appendInfo([]string{"Conversation cleared."})
+		return nil, true
+
+	case input == "/model":
+		models, err := listModelInfos(m.ctx, m.ollamaClient)
+		if err != nil {
+			m.appendError(err.Error())
+			return nil, true
+		}
+		lines := []string{"Available models:"}
+		for _, mod := range models {
+			marker := ""
+			if mod.Name == m.model {
+				marker = styleMuted.Render(" (current)")
+			}
+			lines = append(lines, fmt.Sprintf("  • %s  %s%s", mod.Name, styleMuted.Render(mod.Size), marker))
+		}
+		m.appendInfo(lines)
+		return nil, true
+
+	case strings.HasPrefix(input, "/model "):
+		parts := strings.Fields(input)
+		if len(parts) != 2 {
+			m.appendError("usage: /model <name>")
+			return nil, true
+		}
+		if err := m.br.SetModel(m.ctx, parts[1]); err != nil {
+			m.appendError(err.Error())
+			return nil, true
+		}
+		m.model = parts[1]
+		m.appendInfo([]string{"Switched to model: " + parts[1]})
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *SessionModel) appendInfo(lines []string) {
+	for _, line := range lines {
+		m.output = append(m.output, line)
+	}
+	m.output = append(m.output, "")
+}
+
+// ───────────────────────── async plumbing ─────────────────────────
+
+type eventMsg struct{ ev Event }
+type tickMsg struct{} // heartbeat to re-poll the channel without producing output
+type bridgeDoneMsg struct {
+	content string
+	err     error
+}
+type quitMsg struct{}
+
+// waitForEvent returns a tea.Cmd that blocks (with a short timeout) on the
+// event channel. Pairing this with re-issuing after each event delivers a
+// continuous stream of TUI updates without busy-polling.
+func (m SessionModel) waitForEvent() tea.Cmd {
+	ch := m.eventCh
+	return func() tea.Msg {
+		select {
+		case ev := <-ch:
+			return eventMsg{ev: ev}
+		case <-time.After(100 * time.Millisecond):
+			return tickMsg{}
+		}
+	}
+}
+
+// runBridge runs ProcessMessage in a goroutine via a tea.Cmd. The bridge writes
+// its own progress events to m.eventCh via the TUI printer installed on it.
+func (m SessionModel) runBridge(_ string) tea.Cmd {
+	return func() tea.Msg {
+		content, err := m.br.ProcessMessage(m.ctx, m.history)
+		return bridgeDoneMsg{content: content, err: err}
+	}
 }
 
 func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
@@ -311,8 +471,8 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 		return nil, err
 	}
 	var infos []ui.ModelInfo
-	for _, m := range models {
-		infos = append(infos, ui.ModelInfo{Name: m.Name, Size: m.Size})
+	for _, mod := range models {
+		infos = append(infos, ui.ModelInfo{Name: mod.Name, Size: mod.Size})
 	}
 	return infos, nil
 }

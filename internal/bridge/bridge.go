@@ -9,8 +9,19 @@ import (
 
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
-	"github.com/manojshevate/mcp-setu/internal/ui"
 )
+
+// Printer is the minimal output interface needed by the agentic loop.
+// Both *ui.Printer and *tui.Printer satisfy it.
+type Printer interface {
+	PrintLLMProcessing(iteration int)
+	PrintWarning(msg string)
+	PrintResponseStart()
+	PrintResponseChunk(chunk string)
+	PrintResponseEnd()
+	PrintToolCall(name string, args map[string]any)
+	PrintToolResult(name string, result string, truncated bool)
+}
 
 // OllamaClient defines the interface for Ollama API interactions.
 type OllamaClient interface {
@@ -48,14 +59,14 @@ type Bridge struct {
 	mcpClient    MCPClient
 	model        string
 	temperature  float64
-	printer      *ui.Printer
+	printer      Printer
 	stats        Stats
 	startTime    time.Time
 	mu           sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
-func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, printer *ui.Printer) *Bridge {
+func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, printer Printer) *Bridge {
 	return &Bridge{
 		ollamaClient: ollamaClient,
 		mcpClient:    mcpClient,
@@ -103,7 +114,7 @@ func (b *Bridge) GetStats() Stats {
 }
 
 // SetPrinter updates the printer (used by TUI to inject its own printer).
-func (b *Bridge) SetPrinter(p *ui.Printer) {
+func (b *Bridge) SetPrinter(p Printer) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.printer = p

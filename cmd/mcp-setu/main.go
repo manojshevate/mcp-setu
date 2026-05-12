@@ -164,14 +164,8 @@ func runChat(ctx context.Context) error {
 		_ = mcpClient.CloseAll()
 	}()
 
-	// Print startup info.
-	serverCount := len(cfg.MCPServers)
-	toolCount := len(mcpClient.GetAllTools())
-	printer.PrintBanner(model, configPath, serverCount, toolCount)
-	serverInfos := ui.GetServersTableInfo(mcpClient)
-	printer.PrintServerTable(serverInfos)
-
-	// Create bridge.
+	// Create bridge. Banner is rendered inside the TUI, not before it starts,
+	// so it doesn't get scrolled off-screen by AltScreen initialization.
 	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, printer)
 
 	// Setup signal handling with context cancellation (inherit parent context).

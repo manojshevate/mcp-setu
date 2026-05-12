@@ -2,8 +2,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
@@ -12,39 +10,20 @@ import (
 	"github.com/manojshevate/mcp-setu/internal/ui"
 )
 
+// RunChat starts the interactive TUI chat. The banner and server list are
+// rendered as the initial content of the output area — nothing is written
+// to stdout before tea.Run, so AltScreen has a clean slate.
 func RunChat(
 	ctx context.Context,
 	br *bridge.Bridge,
 	mcpClient *mcp.MultiClient,
 	ollamaClient *ollama.Client,
-	printer *ui.Printer,
+	printer *ui.Printer, // unused; kept for call-site compatibility
 	model string,
 	systemPrompt string,
 ) error {
-	// Print welcome info before starting TUI
-	serverCount := len(mcpClient.GetAllServerNames())
-	toolCount := len(mcpClient.GetAllTools())
-	printer.PrintBanner(model, "mcp.json", serverCount, toolCount)
-	serverInfos := ui.GetServersTableInfo(mcpClient)
-	printer.PrintServerTable(serverInfos)
-
-	// Add spacing
-	fmt.Fprintf(os.Stdout, "\n")
-
-	// Create session (which creates TUI printer channel)
-	sessionModel := NewSessionModel(
-		ctx,
-		br,
-		mcpClient,
-		ollamaClient,
-		printer, // Original printer (ignored, TUI creates its own)
-		model,
-		systemPrompt,
-	)
-
-	// The TUI printer will capture output via the message channel
-	// The original printer is still used but TUI printer wraps it
-
+	_ = printer
+	sessionModel := NewSessionModel(ctx, br, mcpClient, ollamaClient, model, systemPrompt)
 	p := tea.NewProgram(sessionModel, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
