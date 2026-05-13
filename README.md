@@ -16,7 +16,7 @@ A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontext
 ```bash
 go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest
 # or
-brew tap manojshevate/tap && brew install mcp-setu
+brew tap manojshevate/homebrew-mcp-setu && brew install mcp-setu
 # or
 git clone https://github.com/manojshevate/mcp-setu && cd mcp-setu && make install
 ```
