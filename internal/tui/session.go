@@ -28,6 +28,7 @@ var (
 // modelsLoadedMsg is fired when the background model fetch completes.
 type modelsLoadedMsg struct {
 	names []string
+	err   error
 }
 
 // SessionModel is the root Bubble Tea model. The layout is strictly:
@@ -136,13 +137,13 @@ func (m SessionModel) fetchModels() tea.Cmd {
 	return func() tea.Msg {
 		models, err := client.ListLocalModels(ctx)
 		if err != nil {
-			return modelsLoadedMsg{names: nil}
+			return modelsLoadedMsg{names: nil, err: err}
 		}
 		names := make([]string, 0, len(models))
 		for _, mod := range models {
 			names = append(names, mod.Name)
 		}
-		return modelsLoadedMsg{names: names}
+		return modelsLoadedMsg{names: names, err: nil}
 	}
 }
 
@@ -156,6 +157,10 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case modelsLoadedMsg:
+		if msg.err != nil {
+			// Log the error but don't block; the app is still usable.
+			m.output = append(m.output, styleMuted.Render("  (warning: could not fetch models: "+msg.err.Error()+")"))
+		}
 		m.input.SetModels(msg.names)
 		return m, nil
 
@@ -171,16 +176,17 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Escape: exit picker or dismiss autocomplete.
 		if msg.Type == tea.KeyEsc {
-			if m.input.mode == modeModelSelect || m.input.mode == modeAutocomplete {
+			if m.input.Mode() == modeModelSelect {
 				m.input.ExitModelSelect()
-				m.input.mode = modeNormal
+			} else if m.input.Mode() == modeAutocomplete {
+				m.input.DismissAutocomplete()
 			}
 			return m, nil
 		}
 
 		if msg.Type == tea.KeyEnter {
 			// In model picker mode, confirm selection.
-			if m.input.mode == modeModelSelect {
+			if m.input.Mode() == modeModelSelect {
 				selected := m.input.SelectedModel()
 				m.input.ExitModelSelect()
 				if selected != "" && selected != m.model {

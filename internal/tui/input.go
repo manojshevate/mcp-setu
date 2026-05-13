@@ -232,8 +232,8 @@ func (m InputModel) RenderAutocomplete() string {
 	return ""
 }
 
-// View satisfies tea.Model. It is the legacy combined view used when the
-// session assembles everything itself via RenderLine+RenderAutocomplete.
+// View satisfies tea.Model. It combines RenderLine and RenderAutocomplete
+// for backwards compatibility and ensures the input model is a valid Bubble Tea model.
 func (m InputModel) View() string {
 	line := m.RenderLine()
 	ac := m.RenderAutocomplete()
@@ -241,6 +241,18 @@ func (m InputModel) View() string {
 		return line + "\n" + ac
 	}
 	return line
+}
+
+// Mode returns the current input mode.
+func (m InputModel) Mode() inputMode {
+	return m.mode
+}
+
+// DismissAutocomplete dismisses the autocomplete dropdown without clearing the input.
+func (m *InputModel) DismissAutocomplete() {
+	if m.mode == modeAutocomplete {
+		m.mode = modeNormal
+	}
 }
 
 // EnterModelSelect switches into the interactive model picker.
@@ -294,6 +306,9 @@ func (m *InputModel) Clear() {
 	m.cursor = 0
 	m.historyIdx = -1
 	m.mode = modeNormal
+	m.autocomplete = nil
+	m.selectedAC = 0
+	m.pickerIdx = 0
 }
 
 func (m *InputModel) SetWidth(w int) {
