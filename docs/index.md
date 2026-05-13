@@ -5,9 +5,6 @@ hero:
   name: "mcp-setu"
   text: "MCP Bridge for Ollama"
   tagline: "Bridge your local Ollama models to MCP servers for interactive tool-calling chats"
-  image:
-    src: /logo.svg
-    alt: mcp-setu
   actions:
     - theme: brand
       text: "Get Started"

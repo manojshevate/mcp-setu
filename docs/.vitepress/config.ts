@@ -5,14 +5,9 @@ export default defineConfig({
   description: 'MCP Bridge for Ollama - Interactive tool-calling chats with local language models',
   base: '/mcp-setu/',
   cleanUrls: true,
-  head: [
-    ['link', { rel: 'icon', href: '/mcp-setu/favicon.svg' }],
-  ],
+  head: [],
 
-  themeConfig: {
-    logo: '/logo.svg',
-
-    search: {
+  themeConfig: {    search: {
       provider: 'local',
     },
 
