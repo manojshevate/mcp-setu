@@ -25,7 +25,7 @@ go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@v0.1.0
 ## Homebrew (macOS)
 
 ```bash
-brew tap manojshevate/homebrew-mcp-setu
+brew tap manojshevate/mcp-setu
 brew install mcp-setu
 ```
 
@@ -104,7 +104,7 @@ brew install go  # macOS
 Ensure the tap is added:
 
 ```bash
-brew tap manojshevate/homebrew-mcp-setu
+brew tap manojshevate/mcp-setu
 brew install mcp-setu
 ```
 
