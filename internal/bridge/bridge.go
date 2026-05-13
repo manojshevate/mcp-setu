@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -216,7 +217,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
-	seenToolCalls := make(map[string]bool) // track tool call names already seen
+	seenToolCalls := make(map[string]bool) // track tool calls already seen by name+args
 	started := false
 
 	// Stream chunks as they arrive in real-time
@@ -237,14 +238,18 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 			b.printer.PrintResponseChunk(event.Content)
 		}
 
-		// Collect tool calls from the event, deduplicating by function name
+		// Collect tool calls from the event, deduplicating by full identity
+		// (name + arguments) so the same tool can still be invoked in parallel
+		// with different arguments, but identical repeats across stream events
+		// are filtered out.
 		if len(event.ToolCalls) > 0 {
 			for _, tc := range event.ToolCalls {
-				// Extract tool name
-				toolName, _ := tc.NormalizeToolCall()
-				if !seenToolCalls[toolName] {
+				name, args := tc.NormalizeToolCall()
+				argsJSON, _ := json.Marshal(args)
+				key := name + "\x00" + string(argsJSON)
+				if !seenToolCalls[key] {
 					allToolCalls = append(allToolCalls, tc)
-					seenToolCalls[toolName] = true
+					seenToolCalls[key] = true
 				}
 			}
 		}
