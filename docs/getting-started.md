@@ -28,7 +28,7 @@ go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest
 **Using Homebrew (macOS)**:
 
 ```bash
-brew tap manojshevate/tap
+brew tap manojshevate/homebrew-mcp-setu
 brew install mcp-setu
 ```
 

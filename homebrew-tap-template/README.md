@@ -6,7 +6,7 @@ This is a custom Homebrew tap for distributing mcp-setu on macOS.
 
 ```bash
 # Add the tap
-brew tap manojshevate/tap
+brew tap manojshevate/homebrew-mcp-setu
 
 # Install mcp-setu
 brew install mcp-setu
@@ -38,7 +38,7 @@ homebrew-tap/
 
 To set up this repository:
 
-1. Create a new GitHub repository: `manojshevate/homebrew-tap`
+1. Create a new GitHub repository: `manojshevate/homebrew-mcp-setu`
 2. Clone this template
 3. Push to GitHub
 4. Update the GitHub Actions workflow in the main mcp-setu repository to use this tap
