@@ -19,13 +19,13 @@ mcp-setu version
 **For a specific version:**
 
 ```bash
-go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@v0.1.0
+go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@v0.1.1
 ```
 
 ## Homebrew (macOS)
 
 ```bash
-brew tap manojshevate/homebrew-mcp-setu
+brew tap manojshevate/mcp-setu
 brew install mcp-setu
 ```
 
@@ -63,7 +63,7 @@ mcp-setu version
 You should see output like:
 
 ```
-mcp-setu version v0.1.0
+mcp-setu version v0.1.1
 commit: abc1234
 build date: 2025-05-10T12:00:00Z
 ```
@@ -104,7 +104,7 @@ brew install go  # macOS
 Ensure the tap is added:
 
 ```bash
-brew tap manojshevate/homebrew-mcp-setu
+brew tap manojshevate/mcp-setu
 brew install mcp-setu
 ```
 

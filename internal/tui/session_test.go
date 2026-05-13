@@ -4,17 +4,19 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 )
 
-func newTestSession(t *testing.T) SessionModel {
+func newTestSession(t *testing.T) *SessionModel {
 	t.Helper()
 	mcpClient := mcp.NewMultiClient()
 	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, 4096, nil)
-	return NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
+	m := NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
+	return &m
 }
 
 func TestSessionViewRendersWithoutSize(t *testing.T) {
@@ -27,7 +29,7 @@ func TestSessionViewRendersWithoutSize(t *testing.T) {
 func TestSessionViewRendersWithSize(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	out := m.View()
 	if out == "" {
 		t.Fatal("expected non-empty view")
@@ -42,16 +44,48 @@ func TestSessionViewRendersWithSize(t *testing.T) {
 	if len(lines) != 24 {
 		t.Errorf("expected exactly 24 lines (terminal height), got %d", len(lines))
 	}
-	// Input prompt should be on the LAST line.
-	if !strings.Contains(lines[len(lines)-1], "❯") {
-		t.Errorf("expected ❯ prompt on last line, got: %q", lines[len(lines)-1])
+	// Input prompt should be on the third-from-last line (inside the border box):
+	// lines[len-1] = model footer, lines[len-2] = bottom border, lines[len-3] = input content line,
+	// lines[len-4] = top border.
+	if !strings.Contains(lines[len(lines)-3], "❯") {
+		t.Errorf("expected ❯ prompt on third-from-last line (input box content), got: %q", lines[len(lines)-3])
+	}
+	// Model footer should appear on the last line.
+	if !strings.Contains(lines[len(lines)-1], "◆") {
+		t.Errorf("expected model indicator (◆) on last line, got: %q", lines[len(lines)-1])
+	}
+	// At least one line should contain a border glyph from the rounded border.
+	hasBorder := false
+	for _, l := range lines {
+		if strings.ContainsAny(l, "╭╮╰╯") {
+			hasBorder = true
+			break
+		}
+	}
+	if !hasBorder {
+		t.Errorf("expected at least one line with a rounded border glyph (╭╮╰╯), none found in:\n%s", out)
+	}
+}
+
+func TestSessionViewNarrowTerminal(t *testing.T) {
+	m := newTestSession(t)
+	// Very narrow terminal — should not panic or produce wrong line count.
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 12})
+	m = mUpdated.(*SessionModel)
+	out := m.View()
+	if out == "" {
+		t.Fatal("expected non-empty view for narrow terminal")
+	}
+	lines := strings.Split(out, "\n")
+	if len(lines) != 12 {
+		t.Errorf("expected exactly 12 lines for narrow terminal, got %d", len(lines))
 	}
 }
 
 func TestSessionEventHandling(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 
 	// Feed streaming response events.
 	m.handleEvent(Event{Kind: EventRespStart})
@@ -68,21 +102,43 @@ func TestSessionEventHandling(t *testing.T) {
 func TestSessionTickDoesNotPolluteOutput(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	baseline := len(m.output)
 	for i := 0; i < 50; i++ {
 		mu, _ := m.Update(tickMsg{})
-		m = mu.(SessionModel)
+		m = mu.(*SessionModel)
 	}
 	if len(m.output) != baseline {
 		t.Errorf("ticks polluted output: was %d, now %d", baseline, len(m.output))
 	}
 }
 
+func TestFormatElapsed(t *testing.T) {
+	cases := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0 * time.Second, "0s"},
+		{1 * time.Second, "1s"},
+		{59 * time.Second, "59s"},
+		{60 * time.Second, "1m 0s"},
+		{61 * time.Second, "1m 1s"},
+		{123 * time.Second, "2m 3s"},
+		{3600 * time.Second, "60m 0s"},
+		{-1 * time.Second, "0s"},
+	}
+	for _, tc := range cases {
+		got := formatElapsed(tc.d)
+		if got != tc.want {
+			t.Errorf("formatElapsed(%v) = %q, want %q", tc.d, got, tc.want)
+		}
+	}
+}
+
 func TestSessionStreamingResponseAccumulates(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	m.handleEvent(Event{Kind: EventRespStart})
 	for _, c := range []string{"a", "b", "c"} {
 		m.handleEvent(Event{Kind: EventRespChunk, Text: c})

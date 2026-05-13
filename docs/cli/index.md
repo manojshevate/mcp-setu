@@ -42,7 +42,13 @@ mcp-setu chat --help
 
 ### chat
 
-Start an interactive multi-turn chat session with Ollama using configured MCP tools. The chat runs in a full-screen TUI: input is pinned to the bottom and assistant output scrolls in the panel above.
+Start an interactive multi-turn chat session with Ollama using configured MCP tools. The chat runs in a full-screen TUI with a modern interface:
+
+- **Input Box**: A bordered box at the bottom with rounded corners where you type your messages
+- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., `◆ gemma2:latest`)
+- **Cursor Behavior**: The cursor starts at the beginning of the input field (like Claude Code) and moves naturally as you type
+- **Scrolling Output**: Assistant responses, tool calls, and command output scroll in the panel above the input
+- **Processing Timer**: While the model is thinking, a live elapsed timer shows above the input (e.g., `⟳ thinking… 2s`)
 
 ```bash
 mcp-setu chat [flags]
@@ -59,27 +65,39 @@ mcp-setu chat [flags]
 
 **Key bindings:**
 
-| Keys                | What it does                            |
-|---------------------|-----------------------------------------|
-| `↑` / `↓`           | Cycle through previous inputs           |
-| `/`                 | Open slash-command autocomplete         |
-| `↑` / `↓` (in autocomplete) | Move selection                  |
-| `Tab`               | Accept the selected suggestion          |
-| `Enter`             | Submit                                  |
-| `Ctrl+C` / `Ctrl+D` | Exit                                    |
+| Keys                | What it does                                          |
+|---------------------|-------------------------------------------------------|
+| `↑` / `↓`           | Cycle through previous inputs (or navigate menu options) |
+| `/`                 | Trigger slash-command autocomplete (appears above input) |
+| `Tab`               | Accept the selected suggestion                        |
+| `Esc`               | Dismiss autocomplete or exit model picker             |
+| `Enter`             | Submit                                                |
+| `Ctrl+C` / `Ctrl+D` | Exit                                                  |
 
 **Chat commands** (typed at the prompt):
 
-| Command          | Purpose                                  |
-|------------------|------------------------------------------|
-| `/tools`         | List all available tools                 |
-| `/clear`         | Clear conversation history               |
-| `/model`         | Show current model and available options |
-| `/model <name>`  | Switch to a different model              |
-| `/stats`         | Show performance statistics              |
-| `/servers`       | Show connected MCP servers               |
-| `/help`          | Show chat help                           |
-| `/quit`, `/exit` | Quit the session                         |
+| Command           | Purpose                                              |
+|-------------------|------------------------------------------------------|
+| `/tools`          | List all available tools                             |
+| `/clear`          | Clear conversation history                           |
+| `/model`          | Open interactive model picker (↑↓ navigate, Enter to select) |
+| `/model <space>`  | Autocomplete model names (Tab to complete)          |
+| `/model <name>`   | Switch to a specific model directly                 |
+| `/stats`          | Show performance statistics                          |
+| `/servers`        | Show connected MCP servers                           |
+| `/help`           | Show chat help                                       |
+| `/quit`, `/exit`  | Quit the session                                     |
+
+**Processing Status:**
+
+While your model is thinking, a live elapsed timer appears above the input:
+
+```
+⟳ thinking… 2s
+⟳ thinking… 1m 30s
+```
+
+The timer updates every second and uses the format `Xs` for under 60 seconds and `Xm Ys` for longer durations.
 
 **Examples:**
 
@@ -243,7 +261,7 @@ mcp-setu version
 **Output Example:**
 
 ```
-mcp-setu version v0.1.0
+mcp-setu version v0.1.1
 commit: abc1234567890def
 build date: 2025-05-10T12:00:00Z
 ```

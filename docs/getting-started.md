@@ -28,7 +28,7 @@ go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest
 **Using Homebrew (macOS)**:
 
 ```bash
-brew tap manojshevate/homebrew-mcp-setu
+brew tap manojshevate/mcp-setu
 brew install mcp-setu
 ```
 
@@ -104,19 +104,49 @@ Ollama (generates response)
 User sees the answer
 ```
 
-## Explore Key Commands
+## Chat Interface Details
 
-Once in the chat, type `/` to open the slash-command autocomplete, navigate with `↑`/`↓`, and press `Tab` to accept. Use `↑`/`↓` (when not autocompleting) to recall previous inputs.
+The chat TUI has a clean, modern layout with an input box pinned at the bottom and scrolling content above. Here's what you'll see:
 
-| Command           | What it does              |
-|-------------------|---------------------------|
-| `/tools`          | Show all available tools  |
-| `/model [name]`   | Show or switch model      |
-| `/stats`          | Performance metrics       |
-| `/servers`        | Connected MCP servers     |
-| `/clear`          | Reset conversation        |
-| `/help`           | Show all commands         |
-| `/quit` / `/exit` | Quit (also `Ctrl+C`)      |
+- **Bordered Input Box**: Your messages are typed in a styled box with rounded corners
+- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., "◆ gemma2:latest")
+- **Cursor Position**: The cursor starts at the beginning of the input field (like Claude Code) and moves naturally as you type
+- **Autocomplete Dropdown**: When you type `/`, suggestions appear **above** the input field for better visibility
+
+### Navigation
+
+| Keys | What it does |
+|------|--------------|
+| `/` | Trigger autocomplete dropdown (appears above input) |
+| `↑` / `↓` | Navigate history (or menu options when autocompleting) |
+| `Tab` | Accept the selected suggestion |
+| `Esc` | Dismiss autocomplete or exit model picker |
+
+### Commands
+
+| Command | What it does |
+|---------|--------------|
+| `/tools` | Show all available tools |
+| `/model` | **Interactive model picker** — navigate with ↑↓, select with Enter |
+| `/model <space>` | **Autocomplete model names** — use Tab to complete |
+| `/model <name>` | Switch to specific model directly |
+| `/stats` | Performance metrics |
+| `/servers` | Connected MCP servers |
+| `/clear` | Reset conversation |
+| `/help` | Show all commands |
+| `/quit` / `/exit` | Quit (also `Ctrl+C`) |
+
+### Real-Time Feedback
+
+While your model is thinking, a **live elapsed timer** shows above the input:
+
+```
+⟳ thinking… 2s
+⟳ thinking… 45s
+⟳ thinking… 2m 15s
+```
+
+This makes it easy to see how long the model has been processing your request.
 
 Try `/tools` to see what MCP servers are connected.
 
