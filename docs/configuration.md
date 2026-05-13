@@ -16,7 +16,7 @@ The config has two main sections:
 {
   "ollama": {
     "baseUrl": "http://localhost:11434",
-    "model": "gemma4:e4b",
+    "model": "gemma2:latest",
     "systemPrompt": "You are an AI assistant with access to tools via the Model Context Protocol. Use available tools to help the user accomplish their tasks. Be helpful, concise, and direct.",
     "temperature": 0.7,
     "contextLength": 4096
@@ -35,7 +35,7 @@ The config has two main sections:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `baseUrl` | string | `http://localhost:11434` | Ollama API endpoint |
-| `model` | string | `gemma4:e4b` | Model to use (must support tool calling) |
+| `model` | string | `gemma2:latest` | Model to use (must support tool calling) |
 | `systemPrompt` | string | `"You are an AI assistant with access to tools via the Model Context Protocol..."` | System prompt sent with every message |
 | `temperature` | number | `0.7` | Sampling temperature (0–1) |
 | `contextLength` | number | `4096` | Max context window in tokens |
@@ -125,7 +125,7 @@ Server-Sent Events (deprecated but still supported).
 
 | Model | Example | Notes |
 |-------|---------|-------|
-| **Gemma 4** | `gemma4:e4b` | ⭐ Recommended—best on-device tool calling |
+| **Gemma 4** | `gemma2:latest` | ⭐ Recommended—best on-device tool calling |
 | **Gemma 3** | `gemma3:2b` | Efficient, strong tool use |
 | **Qwen** | `qwen2.5:7b` | Excellent tool calling, great for coding |
 | **Llama 3.2** | `llama3.2:3b` | Fast, reliable, good for most tasks |
@@ -184,6 +184,10 @@ mcp-setu chat
 
 ### OAuth 2.1
 
+> **⚠ Not yet implemented.** The `oauth2` auth type is planned for a future release. Configuring it currently returns an error: `OAuth2 auth type is not yet implemented`. Use `bearer-token` or `env` auth types instead.
+
+The config schema is reserved for when OAuth 2.1 support ships:
+
 ```json
 {
   "mcpServers": {
@@ -202,17 +206,7 @@ mcp-setu chat
 }
 ```
 
-For production, use environment variables:
-
-```json
-{
-  "auth": {
-    "type": "oauth2",
-    "authorizationServerEnvVar": "MCP_AUTH_SERVER",
-    "scopes": ["mcp:read", "mcp:write"]
-  }
-}
-```
+Until OAuth2 is implemented, use `bearer-token` with a pre-obtained token or the `env` type to read a token from an environment variable.
 
 ## Claude Desktop Compatibility
 

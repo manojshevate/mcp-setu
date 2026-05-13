@@ -21,7 +21,6 @@ type Message struct {
 	Content   string         `json:"content,omitempty"`
 	Thinking  string         `json:"thinking,omitempty"`
 	ToolCalls []ToolCall     `json:"tool_calls,omitempty"`
-	ToolCall  *ToolCall      `json:"tool_call,omitempty"`
 }
 
 // ToolCall represents a tool call in a message.

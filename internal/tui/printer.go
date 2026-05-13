@@ -36,8 +36,11 @@ func NewPrinter(ch chan<- Event, verbose bool) *Printer {
 }
 
 func (p *Printer) emit(ev Event) {
-	// Non-blocking send: if the channel is full, drop the event rather than
-	// stall the bridge. The channel is sized generously in the session model.
+	p.ch <- ev  // blocking: bridge slows down under backpressure
+}
+
+func (p *Printer) emitLog(ev Event) {
+	// Non-blocking for verbose/log events — dropping is acceptable
 	select {
 	case p.ch <- ev:
 	default:
@@ -49,9 +52,9 @@ func (p *Printer) PrintLLMProcessing(iteration int) {
 		return
 	}
 	if iteration == 1 {
-		p.emit(Event{Kind: EventLog, Text: "💭 Processing..."})
+		p.emitLog(Event{Kind: EventLog, Text: "💭 Processing..."})
 	} else {
-		p.emit(Event{Kind: EventLog, Text: fmt.Sprintf("💭 Processing (iteration %d)...", iteration)})
+		p.emitLog(Event{Kind: EventLog, Text: fmt.Sprintf("💭 Processing (iteration %d)...", iteration)})
 	}
 }
 
@@ -75,7 +78,7 @@ func (p *Printer) PrintToolCall(name string, args map[string]any) {
 	if !p.verbose {
 		return
 	}
-	p.emit(Event{Kind: EventLog, Text: fmt.Sprintf("⚙ %s", name)})
+	p.emitLog(Event{Kind: EventLog, Text: fmt.Sprintf("⚙ %s", name)})
 }
 
 func (p *Printer) PrintToolResult(name string, result string, truncated bool) {
@@ -86,5 +89,5 @@ func (p *Printer) PrintToolResult(name string, result string, truncated bool) {
 	if len(display) > 120 {
 		display = display[:120] + "…"
 	}
-	p.emit(Event{Kind: EventLog, Text: fmt.Sprintf("↳ %s", display)})
+	p.emitLog(Event{Kind: EventLog, Text: fmt.Sprintf("↳ %s", display)})
 }

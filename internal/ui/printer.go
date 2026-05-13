@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
+	"golang.org/x/term"
 )
 
 // Printer handles all terminal output formatting.
@@ -33,6 +34,14 @@ var (
 
 // PrintBanner prints the startup banner with info table.
 func (p *Printer) PrintBanner(model, configPath string, serverCount, toolCount int) {
+	// Detect terminal width, default to 120
+	width := 120
+	if fd := int(os.Stdout.Fd()); fd >= 0 {
+		if w, _, err := term.GetSize(fd); err == nil && w > 0 {
+			width = w
+		}
+	}
+
 	// Left side: welcome section
 	welcome := fmt.Sprintf(
 		"Welcome to setu!\n\nModel       %s\nServers     %d connected\nConfig      %s",
@@ -57,22 +66,22 @@ func (p *Printer) PrintBanner(model, configPath string, serverCount, toolCount i
 	)
 
 	// Create styled boxes
-	leftBox := lipgloss.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorPrimary).
 		Foreground(colorPrimary).
-		Padding(1, 2).
-		Render(welcome)
+		Padding(1, 2)
 
-	rightBox := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorPrimary).
-		Foreground(colorPrimary).
-		Padding(1, 2).
-		Render(shortcuts)
+	leftBox := boxStyle.Render(welcome)
+	rightBox := boxStyle.Render(shortcuts)
 
-	// Combine horizontally
+	// Combine horizontally first
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox)
+
+	// If combined width exceeds terminal width, stack vertically
+	if lipgloss.Width(combined) > width {
+		combined = lipgloss.JoinVertical(lipgloss.Left, leftBox, rightBox)
+	}
 
 	fmt.Fprintf(os.Stdout, "%s\n\n", combined)
 }

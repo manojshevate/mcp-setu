@@ -22,14 +22,14 @@ help:
 	@echo "  make docs-dev    - Run docs dev server (http://localhost:5173)"
 	@echo "  make docs-build  - Build docs for production"
 	@echo "  make docs-preview - Preview built docs locally"
-	@echo "  make docs-generate - Generate CLI reference docs"
+	@echo "  make docs-generate - Generate CLI reference docs (maintainer only, not in CI)"
 	@echo ""
 	@echo "Other targets:"
 	@echo "  make clean       - Remove built binaries"
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make install"
-	@echo "  2. ollama pull gemma4:e4b"
+	@echo "  2. ollama pull gemma2:latest"
 	@echo "  3. mcp-setu chat"
 	@echo ""
 	@echo "Documentation quick start:"
@@ -100,7 +100,9 @@ test-v:
 
 coverage:
 	@echo "Running tests with coverage..."
-	@go test ./internal/bridge -cover
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@go tool cover -func=coverage.out | grep total
 
 clean:
 	@echo "Cleaning..."

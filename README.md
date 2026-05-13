@@ -3,12 +3,11 @@
 A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontextprotocol.io) servers, giving local language models tool-calling abilities in a modern interactive chat TUI. Drop-in compatible with your existing Claude Desktop `mcp.json`.
 
 ```
-┌─────────┐    JSON-RPC stdio    ┌─────────────┐
-│ mcp-setu │ ◄──────────────────► │  MCP Server │
-│ (bridge)│                      │ (filesystem,│
-│         │   /api/chat HTTP     │  sqlite, …) │
-└─────────┘ ◄──────────────────►
-   Ollama (gemma3, qwen2.5, llama3.2 …)
+┌──────────────┐                  ┌──────────────┐  JSON-RPC stdio  ┌──────────────┐
+│    Ollama    │  /api/chat HTTP  │   mcp-setu   │ ◄──────────────► │  MCP Server  │
+│  (gemma2,    │ ◄──────────────► │   (bridge)   │                  │ (filesystem, │
+│  qwen2.5, …) │                  │              │                  │  sqlite, …)  │
+└──────────────┘                  └──────────────┘                  └──────────────┘
 ```
 
 ## Install
@@ -25,7 +24,7 @@ git clone https://github.com/manojshevate/mcp-setu && cd mcp-setu && make instal
 
 ```bash
 ollama serve                                  # in another terminal
-ollama pull gemma3:4b                         # any tool-capable model
+ollama pull gemma2:latest                     # any tool-capable model
 mcp-setu chat                                 # opens the TUI
 ```
 
@@ -33,7 +32,7 @@ A minimal `mcp.json` (Claude Desktop-compatible):
 
 ```json
 {
-  "ollama": { "model": "gemma3:4b" },
+  "ollama": { "model": "gemma2:latest" },
   "mcpServers": {
     "memory": {
       "command": "npx",
@@ -99,6 +98,15 @@ Any locally installed Ollama model works — these have stronger tool-calling. S
 - [Examples](https://manojshevate.github.io/mcp-setu/examples)
 - [Troubleshooting](https://manojshevate.github.io/mcp-setu/troubleshooting)
 - [CLI reference](https://manojshevate.github.io/mcp-setu/cli/)
+
+### Building docs locally
+
+The documentation site (under `docs/`) uses [VitePress](https://vitepress.dev) and requires Node.js:
+
+```bash
+npm install     # first time only
+make docs-dev   # start dev server at http://localhost:5173
+```
 
 ## Development
 

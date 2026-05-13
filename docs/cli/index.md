@@ -7,6 +7,7 @@ Complete command-line reference for `mcp-setu`.
 | Command | Purpose |
 |---------|---------|
 | `mcp-setu chat` | Start interactive chat session (default) |
+| `mcp-setu init` | Scaffold a starter `mcp.json` in the current directory |
 | `mcp-setu tools` | List all available tools from MCP servers |
 | `mcp-setu models` | List local Ollama models and tool support |
 | `mcp-setu validate` | Validate config and test connectivity |
@@ -16,7 +17,10 @@ Complete command-line reference for `mcp-setu`.
 
 ```
 --config string    Path to config file (default: mcp.json)
+--model string     Override model from config
+--system string    Override system prompt from config
 --verbose          Show tool calls and LLM iterations in the chat TUI
+--version          Show version and exit
 --help             Show help for a command
 ```
 
@@ -50,6 +54,8 @@ mcp-setu chat [flags]
 --model string      Override model from config (e.g., --model qwen2.5:7b)
 --system string     Override system prompt from config
 ```
+
+> **Note:** `--model` and `--system` are global flags and also work at the root level: `mcp-setu --model qwen2.5:7b`
 
 **Key bindings:**
 
@@ -92,6 +98,37 @@ mcp-setu chat --model qwen2.5:7b --system "Code review expert"
 
 # Verbose: show tool calls and LLM iterations in the TUI
 mcp-setu chat --verbose
+```
+
+### init
+
+Scaffold a starter `mcp.json` config file in the current directory.
+
+```bash
+mcp-setu init
+```
+
+Creates `mcp.json` with a minimal working example (filesystem server + Ollama config). Exits with an error if `mcp.json` already exists.
+
+**Example:**
+
+```bash
+mkdir my-project && cd my-project
+mcp-setu init
+# ✓ Created mcp.json — edit it then run: mcp-setu chat
+```
+
+After running, open `mcp.json`, set your model and servers, then:
+
+```bash
+mcp-setu validate
+mcp-setu chat
+```
+
+**Flags:**
+
+```
+--config string    Output path (default: mcp.json)
 ```
 
 ### tools
@@ -138,7 +175,7 @@ mcp-setu models
 ┌─────────────────────┬────────┬────────────────┐
 │ Model               │ Size   │ Tool Support   │
 ├─────────────────────┼────────┼────────────────┤
-│ gemma4:e4b          │ 4 GB   │ ✓ Yes          │
+│ gemma2:latest          │ 4 GB   │ ✓ Yes          │
 │ qwen2.5:7b          │ 6 GB   │ ✓ Yes          │
 │ llama3.2:3b         │ 2 GB   │ ✓ Yes          │
 │ mistral-nemo:12b    │ 9 GB   │ ✓ Yes          │
@@ -163,16 +200,17 @@ mcp-setu validate
 **What it checks:**
 
 1. Config file syntax is valid JSON
-2. Ollama is reachable
-3. Specified model exists and supports tool calling
-4. All configured MCP servers can start
-5. Each server provides at least one tool
+2. Required environment variables are set (for `env`/`bearer-token` auth)
+3. Ollama is reachable
+4. Specified model exists and supports tool calling
+5. All configured MCP servers can start (failures are reported but don't stop other servers from being checked)
+6. Each server provides at least one tool
 
 **Output Example (Success):**
 
 ```
 ✓ Config file valid
-✓ Model gemma4:e4b found and supports tool calling
+✓ Model gemma2:latest found and supports tool calling
 ✓ MCP server "filesystem" connected with 3 tools
 ✓ MCP server "memory" connected with 2 tools
 ✓ All validations passed!
@@ -183,7 +221,7 @@ mcp-setu validate
 ```
 ✗ Model llama2:7b does not support tool calling
 Supported models:
-  ✓ gemma4:e4b
+  ✓ gemma2:latest
   ✓ qwen2.5:7b
   ...
 ```
@@ -233,8 +271,9 @@ All commands respect the `--config` flag. By default, they look for `mcp.json` i
 |------|------|---------|-------|
 | `--config` | string | `mcp.json` | Path to config file |
 | `--verbose` | boolean | `false` | Enable debug output |
-| `--model` | string | (config) | Override model (chat only) |
-| `--system` | string | (config) | Override system prompt (chat only) |
+| `--model` | string | (config) | Override model |
+| `--system` | string | (config) | Override system prompt |
+| `--version` | boolean | `false` | Show version and exit |
 
 ## Examples
 

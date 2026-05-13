@@ -44,8 +44,8 @@ func TestLoadValidConfig(t *testing.T) {
 		t.Errorf("Expected model gemma4:e4b, got %s", cfg.Ollama.Model)
 	}
 
-	if cfg.Ollama.Temperature != 0.7 {
-		t.Errorf("Expected temperature 0.7, got %f", cfg.Ollama.Temperature)
+	if cfg.Ollama.Temperature == nil || *cfg.Ollama.Temperature != 0.7 {
+		t.Errorf("Expected temperature 0.7, got %v", cfg.Ollama.Temperature)
 	}
 
 	if len(cfg.MCPServers) != 1 {
@@ -141,12 +141,12 @@ func TestValidateAppliesDefaults(t *testing.T) {
 		t.Errorf("Expected default BaseURL, got %s", cfg.Ollama.BaseURL)
 	}
 
-	if cfg.Ollama.Temperature != 0.7 {
-		t.Errorf("Expected default temperature 0.7, got %f", cfg.Ollama.Temperature)
+	if cfg.Ollama.Temperature == nil || *cfg.Ollama.Temperature != 0.7 {
+		t.Errorf("Expected default temperature 0.7, got %v", cfg.Ollama.Temperature)
 	}
 
-	if cfg.Ollama.ContextLength != 4096 {
-		t.Errorf("Expected default context length 4096, got %d", cfg.Ollama.ContextLength)
+	if cfg.Ollama.ContextLength == nil || *cfg.Ollama.ContextLength != 4096 {
+		t.Errorf("Expected default context length 4096, got %v", cfg.Ollama.ContextLength)
 	}
 }
 

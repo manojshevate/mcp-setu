@@ -5,9 +5,6 @@ hero:
   name: "mcp-setu"
   text: "MCP Bridge for Ollama"
   tagline: "Bridge your local Ollama models to MCP servers for interactive tool-calling chats"
-  image:
-    src: /logo.svg
-    alt: mcp-setu
   actions:
     - theme: brand
       text: "Get Started"
@@ -40,7 +37,7 @@ features:
     details: "Full-screen Bubble Tea TUI with input pinned to the bottom, slash-command autocomplete, and ↑/↓ input history."
   - icon: 🔒
     title: "Secure by Default"
-    details: "Full OAuth 2.1 support, environment-based credentials, and no secrets in config files."
+    details: "OAuth 2.1 support (planned), environment-based credentials, and no secrets in config files."
   - icon: ⚡
     title: "Powered by setu"
     details: "Your interactive assistant for bridging local models with professional tools and workflows."

@@ -2,7 +2,9 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -183,12 +185,10 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		// Add tool results to conversation history in order.
 		for i := range resp.ToolCalls {
 			result := toolResults[i]
-			toolCall := resp.ToolCalls[i]
-			// Add tool result as a message with proper "tool" role and correlation to the tool call.
+			// Add tool result as a message with proper "tool" role.
 			messages = append(messages, ollama.Message{
 				Role:    "tool",
 				Content: result,
-				ToolCall: &toolCall,
 			})
 		}
 	}
@@ -217,6 +217,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
+	seenToolCalls := make(map[string]bool) // track tool calls already seen by name+args
 	started := false
 
 	// Stream chunks as they arrive in real-time
@@ -237,9 +238,20 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 			b.printer.PrintResponseChunk(event.Content)
 		}
 
-		// Collect tool calls from the event
+		// Collect tool calls from the event, deduplicating by full identity
+		// (name + arguments) so the same tool can still be invoked in parallel
+		// with different arguments, but identical repeats across stream events
+		// are filtered out.
 		if len(event.ToolCalls) > 0 {
-			allToolCalls = append(allToolCalls, event.ToolCalls...)
+			for _, tc := range event.ToolCalls {
+				name, args := tc.NormalizeToolCall()
+				argsJSON, _ := json.Marshal(args)
+				key := name + "\x00" + string(argsJSON)
+				if !seenToolCalls[key] {
+					allToolCalls = append(allToolCalls, tc)
+					seenToolCalls[key] = true
+				}
+			}
 		}
 	}
 
@@ -322,6 +334,11 @@ func (b *Bridge) buildToolsList() []ollama.Tool {
 			tools = append(tools, tool)
 		}
 	}
+
+	// Sort tools by name for deterministic output
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].Function.Name < tools[j].Function.Name
+	})
 
 	return tools
 }

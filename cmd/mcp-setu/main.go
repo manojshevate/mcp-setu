@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -46,18 +47,25 @@ func main() {
 		Use:   "mcp-setu",
 		Short: "MCP bridge for Ollama",
 		Long:  "mcp-setu bridges Ollama to MCP servers for interactive multi-turn chat",
+		Example: "  mcp-setu\n  mcp-setu chat --model qwen2.5:7b",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
 		},
 	}
 
+	rootCmd.Version = version.Version
+	rootCmd.SetVersionTemplate("mcp-setu version {{.Version}}\n")
+
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "mcp.json", "path to config file")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print tool calls and results")
+	rootCmd.PersistentFlags().StringVar(&modelOverride, "model", "", "override model from config")
+	rootCmd.PersistentFlags().StringVar(&systemOverride, "system", "", "override system prompt from config")
 
 	// Version subcommand.
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version information",
+		Example: "  mcp-setu version",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("mcp-setu version %s\n", version.Version)
 			if version.Commit != "unknown" {
@@ -74,18 +82,18 @@ func main() {
 	chatCmd := &cobra.Command{
 		Use:   "chat",
 		Short: "Start interactive chat session",
+		Example: "  mcp-setu chat\n  mcp-setu chat --model qwen2.5:7b\n  mcp-setu chat --system \"You are a helpful assistant\"",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
 		},
 	}
-	chatCmd.Flags().StringVar(&modelOverride, "model", "", "override model from config")
-	chatCmd.Flags().StringVar(&systemOverride, "system", "", "override system prompt from config")
 	rootCmd.AddCommand(chatCmd)
 
 	// Tools subcommand.
 	toolsCmd := &cobra.Command{
 		Use:   "tools",
 		Short: "List all tools from configured MCP servers",
+		Example: "  mcp-setu tools\n  mcp-setu tools --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTools(cmd.Context())
 		},
@@ -96,6 +104,7 @@ func main() {
 	modelsCmd := &cobra.Command{
 		Use:   "models",
 		Short: "List Ollama models and their tool support status",
+		Example: "  mcp-setu models",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModels(cmd.Context())
 		},
@@ -106,11 +115,23 @@ func main() {
 	validateCmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate config file and test MCP server connectivity",
+		Example: "  mcp-setu validate\n  mcp-setu validate --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runValidate(cmd.Context())
 		},
 	}
 	rootCmd.AddCommand(validateCmd)
+
+	// Init subcommand.
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Create a starter mcp.json config file",
+		Example: "  mcp-setu init",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInit()
+		},
+	}
+	rootCmd.AddCommand(initCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -166,7 +187,7 @@ func runChat(ctx context.Context) error {
 
 	// Create bridge. Banner is rendered inside the TUI, not before it starts,
 	// so it doesn't get scrolled off-screen by AltScreen initialization.
-	br := bridge.NewBridge(ollamaClient, mcpClient, model, cfg.Ollama.Temperature, cfg.Ollama.ContextLength, printer)
+	br := bridge.NewBridge(ollamaClient, mcpClient, model, *cfg.Ollama.Temperature, *cfg.Ollama.ContextLength, printer)
 
 	// Setup signal handling with context cancellation (inherit parent context).
 	ctx, cancel := context.WithCancel(ctx)
@@ -177,7 +198,6 @@ func runChat(ctx context.Context) error {
 	// Signal handler goroutine.
 	go func() {
 		<-sigCh
-		printer.PrintSuccess("Shutting down...")
 		cancel()
 	}()
 
@@ -197,12 +217,13 @@ func runTools(ctx context.Context) error {
 
 	// Spawn MCP servers.
 	mcpClient := mcp.NewMultiClient()
+	var startErrs []string
 	for name, serverCfg := range cfg.MCPServers {
 		client, err := mcp.NewClient(ctx, name, serverCfg)
 		if err != nil {
-			printer.PrintError(fmt.Sprintf("Failed to start MCP server %q: %v", name, err))
-			_ = mcpClient.CloseAll()
-			return err
+			printer.PrintWarning(fmt.Sprintf("Failed to start MCP server %q: %v", name, err))
+			startErrs = append(startErrs, fmt.Sprintf("%s: %v", name, err))
+			continue
 		}
 		mcpClient.Add(name, client)
 	}
@@ -215,6 +236,9 @@ func runTools(ctx context.Context) error {
 	tools := ui.GetToolsTableFromMCP(mcpClient)
 	printer.PrintToolsTable(tools)
 
+	if len(startErrs) > 0 {
+		return fmt.Errorf("some servers failed to start: %s", strings.Join(startErrs, "; "))
+	}
 	return nil
 }
 
@@ -255,6 +279,16 @@ func runValidate(ctx context.Context) error {
 
 	printer.PrintSuccess("Config file valid")
 
+	// Pre-flight: check required env vars are set
+	for name, serverCfg := range cfg.MCPServers {
+		if serverCfg.Auth != nil && serverCfg.Auth.TokenEnvVar != "" {
+			if os.Getenv(serverCfg.Auth.TokenEnvVar) == "" {
+				printer.PrintError(fmt.Sprintf("Server %q requires env var %q but it is not set", name, serverCfg.Auth.TokenEnvVar))
+				return fmt.Errorf("missing required env var %q for server %q", serverCfg.Auth.TokenEnvVar, name)
+			}
+		}
+	}
+
 	// Test Ollama connectivity.
 	ollamaClient := ollama.NewClient(cfg.Ollama.BaseURL)
 	if err := ollamaClient.EnsureModelExists(ctx, cfg.Ollama.Model); err != nil {
@@ -265,19 +299,38 @@ func runValidate(ctx context.Context) error {
 	printer.PrintSuccess(fmt.Sprintf("Model %q found", cfg.Ollama.Model))
 
 	// Test MCP servers.
+	var serverErrs []string
 	for name, serverCfg := range cfg.MCPServers {
 		client, err := mcp.NewClient(ctx, name, serverCfg)
 		if err != nil {
-			printer.PrintError(fmt.Sprintf("Failed to start MCP server %q: %v", name, err))
-			return err
+			printer.PrintError(fmt.Sprintf("MCP server %q failed: %v", name, err))
+			serverErrs = append(serverErrs, name)
+			continue
 		}
-
 		tools := client.GetTools()
 		printer.PrintSuccess(fmt.Sprintf("MCP server %q connected with %d tools", name, len(tools)))
-
 		_ = client.Close()
 	}
 
+	if len(serverErrs) > 0 {
+		return fmt.Errorf("validation failed for servers: %s", strings.Join(serverErrs, ", "))
+	}
 	printer.PrintSuccess("All validations passed!")
+	return nil
+}
+
+func runInit() error {
+	printer := ui.NewPrinter(false)
+	const configFile = "mcp.json"
+	if _, err := os.Stat(configFile); err == nil {
+		printer.PrintError(fmt.Sprintf("%s already exists", configFile))
+		return fmt.Errorf("%s already exists", configFile)
+	}
+	content := config.ExampleConfig()
+	if err := os.WriteFile(configFile, []byte(content+"\n"), 0644); err != nil {
+		printer.PrintError(fmt.Sprintf("Failed to create %s: %v", configFile, err))
+		return err
+	}
+	printer.PrintSuccess(fmt.Sprintf("Created %s — edit it then run: mcp-setu chat", configFile))
 	return nil
 }
