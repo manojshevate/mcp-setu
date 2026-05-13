@@ -3,14 +3,11 @@
 A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontextprotocol.io) servers, giving local language models tool-calling abilities in a modern interactive chat TUI. Drop-in compatible with your existing Claude Desktop `mcp.json`.
 
 ```
-┌──────────────┐  JSON-RPC stdio  ┌─────────────┐
-│   mcp-setu   │ ◄──────────────► │  MCP Server │
-│   (bridge)   │                  │ (filesystem,│
-│              │  /api/chat HTTP  │  sqlite, …) │
-│   Ollama     │ ◄──────────────► └─────────────┘
-│ (gemma2,     │
-│  qwen2.5…)   │
-└──────────────┘
+┌──────────────┐                  ┌──────────────┐  JSON-RPC stdio  ┌──────────────┐
+│    Ollama    │  /api/chat HTTP  │   mcp-setu   │ ◄──────────────► │  MCP Server  │
+│  (gemma2,    │ ◄──────────────► │   (bridge)   │                  │ (filesystem, │
+│  qwen2.5, …) │                  │              │                  │  sqlite, …)  │
+└──────────────┘                  └──────────────┘                  └──────────────┘
 ```
 
 ## Install
