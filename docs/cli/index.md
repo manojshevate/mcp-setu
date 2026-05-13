@@ -261,7 +261,7 @@ mcp-setu version
 **Output Example:**
 
 ```
-mcp-setu version v0.1.0
+mcp-setu version v0.1.1
 commit: abc1234567890def
 build date: 2025-05-10T12:00:00Z
 ```
