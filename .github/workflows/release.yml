@@ -173,7 +173,7 @@ jobs:
     - name: Checkout homebrew-tap
       uses: actions/checkout@v4
       with:
-        repository: manojshevate/homebrew-tap
+        repository: manojshevate/homebrew-mcp-setu
         token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         path: homebrew-tap
 
