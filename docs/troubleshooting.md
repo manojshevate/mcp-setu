@@ -293,9 +293,9 @@ Requires **Go 1.26+**.
    mcp-setu --config /full/path/to/mcp.json chat
    ```
 
-3. Or create a default config:
+3. Or scaffold a starter config:
    ```bash
-   mcp-setu validate  # Will show an example
+   mcp-setu init
    ```
 
 ## Debugging & Getting Help

@@ -184,6 +184,10 @@ mcp-setu chat
 
 ### OAuth 2.1
 
+> **⚠ Not yet implemented.** The `oauth2` auth type is planned for a future release. Configuring it currently returns an error: `OAuth2 auth type is not yet implemented`. Use `bearer-token` or `env` auth types instead.
+
+The config schema is reserved for when OAuth 2.1 support ships:
+
 ```json
 {
   "mcpServers": {
@@ -202,17 +206,7 @@ mcp-setu chat
 }
 ```
 
-For production, use environment variables:
-
-```json
-{
-  "auth": {
-    "type": "oauth2",
-    "authorizationServerEnvVar": "MCP_AUTH_SERVER",
-    "scopes": ["mcp:read", "mcp:write"]
-  }
-}
-```
+Until OAuth2 is implemented, use `bearer-token` with a pre-obtained token or the `env` type to read a token from an environment variable.
 
 ## Claude Desktop Compatibility
 

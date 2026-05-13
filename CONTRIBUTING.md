@@ -19,10 +19,17 @@ Thank you for considering contributing to mcp-setu! This document provides guide
 
 ### Setup Development Environment
 
+> **Note:** Only maintainers have write access to the main repository. External contributors must fork first — you cannot push branches or open PRs directly from a clone.
+
 ```bash
-# Clone the repository
-git clone https://github.com/manojshevate/mcp-setu
+# 1. Fork the repo on GitHub (click "Fork" at https://github.com/manojshevate/mcp-setu)
+
+# 2. Clone YOUR fork (replace <your-username>)
+git clone https://github.com/<your-username>/mcp-setu
 cd mcp-setu
+
+# 3. Add the upstream remote to keep in sync
+git remote add upstream https://github.com/manojshevate/mcp-setu
 
 # Build the binary
 make build
@@ -36,7 +43,13 @@ make test
 
 ### Making Changes
 
-1. **Create a feature branch**
+1. **Sync with upstream before starting**
+   ```bash
+   git fetch upstream
+   git rebase upstream/main
+   ```
+
+2. **Create a feature branch**
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -132,16 +145,26 @@ Fixes #123
 
 ## Pull Request Process
 
-1. **Update documentation** if needed (README.md, inline comments)
-2. **Test thoroughly** with `make vet` and `make build`
-3. **Keep commits clean** - squash WIP commits before submitting
-4. **Write a clear PR description**
+1. **Push your branch to your fork**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+2. **Open a PR** from your fork's branch to `manojshevate/mcp-setu:main` on GitHub
+
+3. **Update documentation** if needed (README.md, `docs/`, inline comments)
+
+4. **Test thoroughly** with `make vet` and `make build`
+
+5. **Keep commits clean** — squash WIP commits before submitting
+
+6. **Write a clear PR description**
    - Explain the problem being solved
    - Describe the solution
    - List any breaking changes
    - Reference related issues
 
-5. **Be responsive to feedback** - engage with reviewers constructively
+7. **Be responsive to feedback** — engage with reviewers constructively
 
 ## Areas to Contribute
 
