@@ -177,16 +177,17 @@ func (m InputModel) RenderLine() string {
 		return lipgloss.NewStyle().Faint(true).Render("↑/↓ select model · enter confirm · esc cancel")
 	}
 
-	display := m.value
-	if display == "" {
-		display = lipgloss.NewStyle().Faint(true).Render("type message...")
+	cursorBlock := lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
+
+	if m.value == "" {
+		// Empty input: show cursor at start with placeholder
+		return cursorBlock + lipgloss.NewStyle().Faint(true).Render("type message...")
 	}
 
-	line := display
-	if m.cursor >= len(m.value) {
-		line += lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
-	}
-	return line
+	// Non-empty input: position cursor at current location
+	before := m.value[:m.cursor]
+	after := m.value[m.cursor:]
+	return before + cursorBlock + after
 }
 
 // RenderAutocomplete returns the autocomplete/picker overlay lines (without a
