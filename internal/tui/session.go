@@ -25,6 +25,11 @@ var (
 	styleSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("#374151"))
 )
 
+// modelsLoadedMsg is fired when the background model fetch completes.
+type modelsLoadedMsg struct {
+	names []string
+}
+
 // SessionModel is the root Bubble Tea model. The layout is strictly:
 //
 //	┌────────────────────────────────────┐
@@ -32,6 +37,7 @@ var (
 //	│ ...                                │
 //	├────────────────────────────────────┤
 //	│ status (only when processing)      │
+//	│ [autocomplete / picker overlay]    │
 //	│ ❯ input                            │
 //	└────────────────────────────────────┘
 type SessionModel struct {
@@ -81,6 +87,7 @@ func NewSessionModel(
 		input:        NewInputModel(),
 		eventCh:      eventCh,
 	}
+	m.input.SetCurrentModel(model)
 	// Store the verbose flag so we can pass it to the printer later.
 	m.verbose = verbose
 	m.appendBanner()
@@ -113,8 +120,30 @@ func (m *SessionModel) appendBanner() {
 	)
 }
 
+// Init fires the event-poller and eagerly fetches the local model list so
+// that autocomplete and the picker are populated from the very first keystroke.
 func (m SessionModel) Init() tea.Cmd {
-	return m.waitForEvent()
+	return tea.Batch(m.waitForEvent(), m.fetchModels())
+}
+
+// fetchModels returns a tea.Cmd that lists local models in the background.
+func (m SessionModel) fetchModels() tea.Cmd {
+	if m.ollamaClient == nil {
+		return nil
+	}
+	ctx := m.ctx
+	client := m.ollamaClient
+	return func() tea.Msg {
+		models, err := client.ListLocalModels(ctx)
+		if err != nil {
+			return modelsLoadedMsg{names: nil}
+		}
+		names := make([]string, 0, len(models))
+		for _, mod := range models {
+			names = append(names, mod.Name)
+		}
+		return modelsLoadedMsg{names: names}
+	}
 }
 
 func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -126,6 +155,10 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetWidth(m.width - 4)
 		return m, nil
 
+	case modelsLoadedMsg:
+		m.input.SetModels(msg.names)
+		return m, nil
+
 	case tea.KeyMsg:
 		// Always allow Ctrl+C / Ctrl+D to exit.
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
@@ -135,7 +168,33 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.processing {
 			return m, nil
 		}
+
+		// Escape: exit picker or dismiss autocomplete.
+		if msg.Type == tea.KeyEsc {
+			if m.input.mode == modeModelSelect || m.input.mode == modeAutocomplete {
+				m.input.ExitModelSelect()
+				m.input.mode = modeNormal
+			}
+			return m, nil
+		}
+
 		if msg.Type == tea.KeyEnter {
+			// In model picker mode, confirm selection.
+			if m.input.mode == modeModelSelect {
+				selected := m.input.SelectedModel()
+				m.input.ExitModelSelect()
+				if selected != "" && selected != m.model {
+					if err := m.br.SetModel(m.ctx, selected); err != nil {
+						m.appendError(err.Error())
+					} else {
+						m.model = selected
+						m.input.SetCurrentModel(selected)
+						m.appendInfo([]string{"Switched to model: " + selected})
+					}
+				}
+				return m, nil
+			}
+
 			value := m.input.GetValue()
 			if value == "" {
 				return m, nil
@@ -143,6 +202,12 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input.AddToHistory(value)
 			m.appendUser(value)
 			m.input.Clear()
+
+			// Handle "/model" (bare, no name) → enter picker.
+			if value == "/model" {
+				m.input.EnterModelSelect()
+				return m, nil
+			}
 
 			if cmd, handled := m.handleSlashCommand(value); handled {
 				return m, cmd
@@ -189,7 +254,13 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the screen: output area on top, separator, optional status, input pinned at bottom.
+// View renders the screen. The layout from top to bottom is:
+//
+//	output area  (scrolling)
+//	separator
+//	status line  (only when processing)
+//	autocomplete / picker overlay  (above the input line)
+//	❯ input line
 func (m SessionModel) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
@@ -197,16 +268,20 @@ func (m SessionModel) View() string {
 
 	// Bottom-pinned chrome.
 	separator := styleSeparator.Render(strings.Repeat("─", m.width))
-	inputLine := stylePrompt.Render("❯ ") + m.input.View()
+	inputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
 	statusLine := ""
 	if m.status != "" {
 		statusLine = styleMuted.Render(m.status)
 	}
+	acBlock := m.input.RenderAutocomplete()
 
 	// Calculate how many rows the bottom chrome consumes.
-	// separator (1) + optional status (1) + input (1 plus AC dropdown lines if any).
-	inputLines := strings.Count(m.input.View(), "\n") + 1
-	chromeHeight := 1 + inputLines
+	// separator (1) + optional status (1) + optional AC/picker + input (1).
+	acLines := 0
+	if acBlock != "" {
+		acLines = strings.Count(acBlock, "\n") + 1
+	}
+	chromeHeight := 1 + 1 + acLines // separator + input + ac
 	if statusLine != "" {
 		chromeHeight++
 	}
@@ -215,8 +290,7 @@ func (m SessionModel) View() string {
 		outputHeight = 1
 	}
 
-	// Build visible output: word-wrap each logical line to the terminal width,
-	// then take the trailing N visual lines so newest content is at the bottom.
+	// Build visible output.
 	visual := m.renderOutputLines(outputHeight)
 
 	// Pad the top so output hugs the bottom (against the separator).
@@ -227,6 +301,9 @@ func (m SessionModel) View() string {
 	parts := []string{strings.Join(visual, "\n"), separator}
 	if statusLine != "" {
 		parts = append(parts, statusLine)
+	}
+	if acBlock != "" {
+		parts = append(parts, acBlock)
 	}
 	parts = append(parts, inputLine)
 	return strings.Join(parts, "\n")
@@ -394,23 +471,8 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 		m.appendInfo([]string{"Conversation cleared."})
 		return nil, true
 
-	case input == "/model":
-		models, err := listModelInfos(m.ctx, m.ollamaClient)
-		if err != nil {
-			m.appendError(err.Error())
-			return nil, true
-		}
-		lines := []string{"Available models:"}
-		for _, mod := range models {
-			marker := ""
-			if mod.Name == m.model {
-				marker = styleMuted.Render(" (current)")
-			}
-			lines = append(lines, fmt.Sprintf("  • %s  %s%s", mod.Name, styleMuted.Render(mod.Size), marker))
-		}
-		m.appendInfo(lines)
-		return nil, true
-
+	// "/model" (bare) is handled before handleSlashCommand (enters picker).
+	// "/model name" sets the model directly.
 	case strings.HasPrefix(input, "/model "):
 		parts := strings.Fields(input)
 		if len(parts) != 2 {
@@ -422,6 +484,7 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 			return nil, true
 		}
 		m.model = parts[1]
+		m.input.SetCurrentModel(parts[1])
 		m.appendInfo([]string{"Switched to model: " + parts[1]})
 		return nil, true
 	}
