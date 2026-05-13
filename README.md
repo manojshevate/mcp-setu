@@ -55,22 +55,34 @@ mcp-setu --config ~/Library/Application\ Support/Claude/claude_desktop_config.js
 
 The interactive chat is a full-screen TUI with the input pinned at the bottom and a scrolling output area on top.
 
+### Navigation & Input
+
 | Keys           | What it does                              |
 |----------------|-------------------------------------------|
-| `↑` / `↓`      | Cycle through previous inputs             |
-| `/`            | Open slash-command autocomplete           |
+| `↑` / `↓`      | Cycle through previous inputs (or navigate options in menus) |
+| `/`            | Trigger slash-command autocomplete (appears above input) |
 | `Tab`          | Accept the selected suggestion            |
+| `Esc`          | Dismiss autocomplete or exit model picker  |
 | `Ctrl+C` / `Ctrl+D` | Exit                                 |
+
+### Slash Commands
 
 | Command          | What it does                       |
 |------------------|------------------------------------|
 | `/tools`         | List available tools               |
 | `/servers`       | Show connected MCP servers         |
-| `/model [name]`  | Show or switch model               |
+| `/model`         | **Interactive model picker** (↑↓ to navigate, Enter to select) |
+| `/model <space>` | **Autocomplete model names** (Tab to select) |
+| `/model <name>`  | Switch to specific model directly  |
 | `/stats`         | Performance metrics                |
 | `/clear`         | Reset conversation history         |
 | `/help`          | Show all commands                  |
 | `/quit`, `/exit` | Exit                               |
+
+**Model Selection Examples:**
+- Type `/model` + Enter → Opens interactive picker where you navigate with arrow keys and confirm with Enter
+- Type `/model ` (with space) → Shows autocomplete suggestions for available model names (use Tab to complete)
+- Type `/model gemma2:latest` → Directly switch to the specified model
 
 Pass `--verbose` to see tool calls and LLM iterations inside the TUI:
 

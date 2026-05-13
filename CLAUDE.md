@@ -17,9 +17,32 @@ internal/bridge/    Agentic loop — orchestrates Ollama ↔ MCP tool calls
 internal/config/    JSON config loading (mcp.json, Claude Desktop compatible)
 internal/mcp/       MCP stdio client (JSON-RPC 2.0, spawns server subprocesses)
 internal/ollama/    Ollama HTTP API client (/api/chat, /api/show, /api/tags)
-internal/ui/        Terminal output formatting (lipgloss)
+internal/ui/        Terminal output formatting (lipgloss, static output)
+internal/tui/       Interactive terminal UI (Bubble Tea, input/autocomplete/picker)
 internal/version/   Version info injected at build time via ldflags
 ```
+
+### TUI (Terminal UI) Features
+
+The `internal/tui/` package provides an interactive chat session with advanced input handling:
+
+- **Input Model**: Manages text input, command history, and three distinct modes:
+  - `modeNormal`: Standard text entry with history navigation (↑↓)
+  - `modeAutocomplete`: Slash-command autocomplete dropdown (rendered *above* input)
+  - `modeModelSelect`: Interactive model picker for `/model` command selection
+  
+- **Slash Commands**: `/tools`, `/clear`, `/model`, `/stats`, `/servers`, `/help`, `/quit`, `/exit`
+
+- **Model Selection**:
+  - `/model <Enter>`: Enter interactive picker (navigate with ↑↓, select with Enter, cancel with Esc)
+  - `/model <space>`: Autocomplete model names (use Tab to select)
+  - Models list eagerly fetched from Ollama on startup for instant autocomplete availability
+
+- **Key Behaviors**:
+  - Esc in picker mode: Cancels and returns to chat input
+  - Esc in autocomplete: Dismisses dropdown without clearing typed text
+  - Typing while in picker: Exits picker and starts fresh text entry
+  - Up/Down arrows: Navigate history in normal mode, navigate options in picker/autocomplete
 
 ## Common Commands
 
