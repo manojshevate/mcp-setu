@@ -41,14 +41,14 @@ type modelsLoadedMsg struct {
 
 // SessionModel is the root Bubble Tea model. The layout is strictly:
 //
-//	┌────────────────────────────────────┐
-//	│ output area (scrolling)            │
-//	│ ...                                │
-//	├────────────────────────────────────┤
-//	│ status (only when processing)      │
-//	│ [autocomplete / picker overlay]    │
-//	│ ❯ input                            │
-//	└────────────────────────────────────┘
+//	output area (scrolling)
+//	────────────────────────── separator
+//	⟳ thinking… 5s              (status, only when processing)
+//	[autocomplete / picker]     (overlay, if triggered)
+//	╭──────────────────────╮    (input box with border)
+//	│ ❯ user input         │
+//	╰──────────────────────╯
+//	              ◆ gemma2    (model indicator, right-aligned)
 type SessionModel struct {
 	// terminal
 	width, height int
@@ -290,8 +290,9 @@ func (m *SessionModel) View() string {
 	separator := styleSeparator.Render(strings.Repeat("─", m.width))
 
 	// Input box: border wraps the prompt+input line (3 rows: top border, content, bottom border).
+	// Width constraint: m.width - 2 accounts for the left and right border (each 1 col).
 	rawInputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
-	inputBox := styleInputBox.Render(rawInputLine)
+	inputBox := styleInputBox.Width(m.width - 2).Render(rawInputLine)
 
 	// Model footer: right-aligned badge below the input box.
 	modelFooter := ""
@@ -311,12 +312,13 @@ func (m *SessionModel) View() string {
 	acBlock := m.input.RenderAutocomplete()
 
 	// Calculate how many rows the bottom chrome consumes.
-	// separator (1) + optional status (1) + optional AC/picker + inputBox (3) + modelFooter (1).
+	// The input box may wrap to multiple lines if content is long; count actual height.
+	inputBoxLines := strings.Count(inputBox, "\n") + 1
 	acLines := 0
 	if acBlock != "" {
 		acLines = strings.Count(acBlock, "\n") + 1
 	}
-	chromeHeight := 1 + 3 + acLines // separator + inputBox (3 rows) + ac
+	chromeHeight := 1 + inputBoxLines + acLines // separator + inputBox + ac
 	if statusLine != "" {
 		chromeHeight++
 	}
