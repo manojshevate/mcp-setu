@@ -52,6 +52,9 @@ func main() {
 		},
 	}
 
+	rootCmd.Version = version.Version
+	rootCmd.SetVersionTemplate("mcp-setu version {{.Version}}\n")
+
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "mcp.json", "path to config file")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print tool calls and results")
 	rootCmd.PersistentFlags().StringVar(&modelOverride, "model", "", "override model from config")

@@ -1,3 +1,6 @@
+// docgen generates CLI reference documentation into docs/cli/.
+// This is a maintainer-only tool; it is not built or tested in CI.
+// Run manually with: go run ./internal/tools/docgen
 package main
 
 import (

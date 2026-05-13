@@ -3,12 +3,14 @@
 A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontextprotocol.io) servers, giving local language models tool-calling abilities in a modern interactive chat TUI. Drop-in compatible with your existing Claude Desktop `mcp.json`.
 
 ```
-┌─────────┐    JSON-RPC stdio    ┌─────────────┐
-│ mcp-setu │ ◄──────────────────► │  MCP Server │
-│ (bridge)│                      │ (filesystem,│
-│         │   /api/chat HTTP     │  sqlite, …) │
-└─────────┘ ◄──────────────────►
-   Ollama (gemma3, qwen2.5, llama3.2 …)
+┌──────────────┐  JSON-RPC stdio  ┌─────────────┐
+│   mcp-setu   │ ◄──────────────► │  MCP Server │
+│   (bridge)   │                  │ (filesystem,│
+│              │  /api/chat HTTP  │  sqlite, …) │
+│   Ollama     │ ◄──────────────► └─────────────┘
+│ (gemma2,     │
+│  qwen2.5…)   │
+└──────────────┘
 ```
 
 ## Install
@@ -99,6 +101,15 @@ Any locally installed Ollama model works — these have stronger tool-calling. S
 - [Examples](https://manojshevate.github.io/mcp-setu/examples)
 - [Troubleshooting](https://manojshevate.github.io/mcp-setu/troubleshooting)
 - [CLI reference](https://manojshevate.github.io/mcp-setu/cli/)
+
+### Building docs locally
+
+The documentation site (under `docs/`) uses [VitePress](https://vitepress.dev) and requires Node.js:
+
+```bash
+npm install     # first time only
+make docs-dev   # start dev server at http://localhost:5173
+```
 
 ## Development
 

@@ -22,7 +22,7 @@ help:
 	@echo "  make docs-dev    - Run docs dev server (http://localhost:5173)"
 	@echo "  make docs-build  - Build docs for production"
 	@echo "  make docs-preview - Preview built docs locally"
-	@echo "  make docs-generate - Generate CLI reference docs"
+	@echo "  make docs-generate - Generate CLI reference docs (maintainer only, not in CI)"
 	@echo ""
 	@echo "Other targets:"
 	@echo "  make clean       - Remove built binaries"

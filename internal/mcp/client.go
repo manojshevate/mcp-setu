@@ -242,6 +242,10 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 	if params != nil {
 		paramJSON, _ := json.Marshal(params)
 		_ = json.Unmarshal(paramJSON, &req.Params)
+		// Treat empty params map as nil for clean omitempty marshaling
+		if len(req.Params) == 0 {
+			req.Params = nil
+		}
 	}
 
 	reqData, _ := json.Marshal(req)
