@@ -100,7 +100,7 @@ mcp-setu version
 
 ```bash
 # Test Homebrew (after formula is updated)
-brew tap manojshevate/tap
+brew tap manojshevate/homebrew-mcp-setu
 brew install mcp-setu
 mcp-setu version
 

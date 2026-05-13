@@ -220,7 +220,7 @@ This creates binaries for all platforms in `bin/releases/`.
 
 ### Publishing a Release
 
-See [RELEASE.md](../RELEASE.md) for the full release checklist.
+See [RELEASE.md](https://github.com/manojshevate/mcp-setu/blob/main/RELEASE.md) for the full release checklist.
 
 ## Extending mcp-setu
 
@@ -350,8 +350,8 @@ mcp-setu validate       # Test with real config
 
 - **Questions?** Start a discussion on GitHub
 - **Found a bug?** Open an issue with details
-- **Want to contribute?** See [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Want to contribute?** See [CONTRIBUTING.md](https://github.com/manojshevate/mcp-setu/blob/main/CONTRIBUTING.md)
 
 ## Future Work
 
-See [README.md](../README.md#limitations--future-work) for planned features and enhancements.
+See [README.md](https://github.com/manojshevate/mcp-setu#limitations--future-work) for planned features and enhancements.
