@@ -2,11 +2,17 @@ package ollama
 
 // ChatRequest represents a request to the Ollama /api/chat endpoint.
 type ChatRequest struct {
-	Model       string       `json:"model"`
-	Messages    []Message    `json:"messages"`
-	Tools       []Tool       `json:"tools,omitempty"`
-	Temperature float64      `json:"temperature,omitempty"`
-	Stream      bool         `json:"stream"`
+	Model    string       `json:"model"`
+	Messages []Message    `json:"messages"`
+	Tools    []Tool       `json:"tools,omitempty"`
+	Options  *Options     `json:"options,omitempty"`
+	Stream   bool         `json:"stream"`
+}
+
+// Options represents sampling options for Ollama /api/chat endpoint.
+type Options struct {
+	Temperature float64 `json:"temperature,omitempty"`
+	NumCtx      int     `json:"num_ctx,omitempty"`
 }
 
 // Message represents a single message in the conversation.

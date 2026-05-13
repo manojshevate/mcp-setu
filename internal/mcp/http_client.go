@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/manojshevate/mcp-setu/internal/version"
 )
 
 // HTTPStreamableClient implements MCP communication over HTTP with streaming support.
@@ -60,7 +62,7 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 		},
 		ClientInfo: ClientInfo{
 			Name:    "mcp-setu",
-			Version: "mcp-setu",
+			Version: version.Version,
 		},
 	}
 
@@ -313,7 +315,7 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 		},
 		ClientInfo: ClientInfo{
 			Name:    "mcp-setu",
-			Version: "mcp-setu",
+			Version: version.Version,
 		},
 	}
 

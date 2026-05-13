@@ -25,9 +25,9 @@ type Printer interface {
 
 // OllamaClient defines the interface for Ollama API interactions.
 type OllamaClient interface {
-	Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error)
-	ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (<-chan ollama.StreamEvent, error)
-	CheckToolSupport(ctx context.Context, model string) error
+	Chat(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64, contextLength int) (*ollama.Message, error)
+	ChatStream(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64, contextLength int) (<-chan ollama.StreamEvent, error)
+	EnsureModelExists(ctx context.Context, model string) error
 	ListLocalModels(ctx context.Context) ([]ollama.ModelInfo, error)
 }
 
@@ -55,25 +55,27 @@ type Stats struct {
 // It maintains the conversation state and coordinates tool calls between the
 // language model and MCP-connected tools, with a safety limit of 20 iterations.
 type Bridge struct {
-	ollamaClient OllamaClient
-	mcpClient    MCPClient
-	model        string
-	temperature  float64
-	printer      Printer
-	stats        Stats
-	startTime    time.Time
-	mu           sync.RWMutex // protects model and stats
+	ollamaClient   OllamaClient
+	mcpClient      MCPClient
+	model          string
+	temperature    float64
+	contextLength  int
+	printer        Printer
+	stats          Stats
+	startTime      time.Time
+	mu             sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
-func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, printer Printer) *Bridge {
+func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, contextLength int, printer Printer) *Bridge {
 	return &Bridge{
-		ollamaClient: ollamaClient,
-		mcpClient:    mcpClient,
-		model:        model,
-		temperature:  temperature,
-		printer:      printer,
-		startTime:    time.Now(),
+		ollamaClient:  ollamaClient,
+		mcpClient:     mcpClient,
+		model:         model,
+		temperature:   temperature,
+		contextLength: contextLength,
+		printer:       printer,
+		startTime:     time.Now(),
 	}
 }
 
@@ -86,7 +88,7 @@ func (b *Bridge) SetModel(ctx context.Context, model string) error {
 	if model == currentModel {
 		return nil
 	}
-	if err := b.ollamaClient.CheckToolSupport(ctx, model); err != nil {
+	if err := b.ollamaClient.EnsureModelExists(ctx, model); err != nil {
 		return err
 	}
 	b.mu.Lock()
@@ -142,6 +144,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		b.mu.RLock()
 		model := b.model
 		temperature := b.temperature
+		contextLength := b.contextLength
 		b.mu.RUnlock()
 
 		// For the final response (no tool calls expected), use streaming.
@@ -151,7 +154,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 		// Check if this is potentially the final response by trying streaming first
 		// If we get tool calls, we already have them from the streaming response
-		resp, err = b.processMessageWithStreaming(ctx, model, messages, tools, temperature)
+		resp, err = b.processMessageWithStreaming(ctx, model, messages, tools, temperature, contextLength)
 		if err != nil {
 			return "", fmt.Errorf("ollama chat failed: %w", err)
 		}
@@ -180,10 +183,12 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		// Add tool results to conversation history in order.
 		for i := range resp.ToolCalls {
 			result := toolResults[i]
-			// Add tool result as a message with proper "tool" role.
+			toolCall := resp.ToolCalls[i]
+			// Add tool result as a message with proper "tool" role and correlation to the tool call.
 			messages = append(messages, ollama.Message{
 				Role:    "tool",
 				Content: result,
+				ToolCall: &toolCall,
 			})
 		}
 	}
@@ -192,12 +197,12 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 }
 
 // processMessageWithStreaming handles streaming response from Ollama and collects tool calls.
-func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64) (*ollama.Message, error) {
-	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature)
+func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, messages []ollama.Message, tools []ollama.Tool, temperature float64, contextLength int) (*ollama.Message, error) {
+	streamChan, err := b.ollamaClient.ChatStream(ctx, model, messages, tools, temperature, contextLength)
 	if err != nil {
 		// Fall back to non-streaming if streaming fails
 		b.printer.PrintWarning(fmt.Sprintf("Streaming failed, falling back to non-streaming mode: %v", err))
-		msg, chatErr := b.ollamaClient.Chat(ctx, model, messages, tools, temperature)
+		msg, chatErr := b.ollamaClient.Chat(ctx, model, messages, tools, temperature, contextLength)
 		if chatErr != nil {
 			return nil, chatErr
 		}
