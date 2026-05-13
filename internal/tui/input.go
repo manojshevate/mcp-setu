@@ -154,7 +154,7 @@ func (m *InputModel) AddToHistory(s string) {
 }
 
 func getMatchingCommands(prefix string) []string {
-	all := []string{"/tools", "/clear", "/model", "/stats", "/servers", "/help"}
+	all := []string{"/tools", "/clear", "/model", "/stats", "/servers", "/help", "/quit", "/exit"}
 	var matches []string
 	for _, cmd := range all {
 		if strings.HasPrefix(cmd, prefix) {

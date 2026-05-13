@@ -120,7 +120,7 @@ func TestGetMatchingCommands(t *testing.T) {
 		prefix   string
 		expected []string
 	}{
-		{"/", []string{"/tools", "/clear", "/model", "/stats", "/servers", "/help"}},
+		{"/", []string{"/tools", "/clear", "/model", "/stats", "/servers", "/help", "/quit", "/exit"}},
 		{"/t", []string{"/tools"}},
 		{"/m", []string{"/model"}},
 		{"/s", []string{"/stats", "/servers"}},
