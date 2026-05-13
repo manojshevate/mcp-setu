@@ -24,11 +24,11 @@ type Config struct {
 
 // OllamaConfig represents Ollama-specific configuration.
 type OllamaConfig struct {
-	BaseURL       string  `json:"baseUrl"`
-	Model         string  `json:"model"`
-	SystemPrompt  string  `json:"systemPrompt"`
-	Temperature   float64 `json:"temperature"`
-	ContextLength int     `json:"contextLength"`
+	BaseURL       string   `json:"baseUrl"`
+	Model         string   `json:"model"`
+	SystemPrompt  string   `json:"systemPrompt"`
+	Temperature   *float64 `json:"temperature"`
+	ContextLength *int     `json:"contextLength"`
 }
 
 // ServerConfig represents the configuration for a single MCP server.
@@ -101,11 +101,13 @@ func (c *Config) Validate() error {
 	if c.Ollama.SystemPrompt == "" {
 		c.Ollama.SystemPrompt = "You are a helpful assistant."
 	}
-	if c.Ollama.Temperature == 0 {
-		c.Ollama.Temperature = 0.7
+	if c.Ollama.Temperature == nil {
+		defaultTemp := 0.7
+		c.Ollama.Temperature = &defaultTemp
 	}
-	if c.Ollama.ContextLength == 0 {
-		c.Ollama.ContextLength = 4096
+	if c.Ollama.ContextLength == nil {
+		defaultCtx := 4096
+		c.Ollama.ContextLength = &defaultCtx
 	}
 	if len(c.MCPServers) == 0 {
 		return fmt.Errorf("mcpServers must contain at least one server")
@@ -115,13 +117,15 @@ func (c *Config) Validate() error {
 
 // ExampleConfig returns a minimal valid example configuration.
 func ExampleConfig() string {
+	defaultTemp := 0.7
+	defaultCtx := 4096
 	example := Config{
 		Ollama: OllamaConfig{
-			BaseURL:      "http://localhost:11434",
-			Model:        "gemma2:latest",
-			SystemPrompt: "You are a helpful assistant.",
-			Temperature:  0.7,
-			ContextLength: 4096,
+			BaseURL:       "http://localhost:11434",
+			Model:         "gemma2:latest",
+			SystemPrompt:  "You are a helpful assistant.",
+			Temperature:   &defaultTemp,
+			ContextLength: &defaultCtx,
 		},
 		MCPServers: map[string]ServerConfig{
 			"filesystem": {

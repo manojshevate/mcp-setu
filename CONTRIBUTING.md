@@ -29,7 +29,7 @@ make build
 
 # Run tests and checks
 make vet
-make test  # when available
+make test
 ```
 
 ## Development Workflow
@@ -49,7 +49,7 @@ make test  # when available
 3. **Run quality checks**
    ```bash
    go vet ./...
-   go test ./...  # when available
+   go test ./...
    make build
    ```
 

@@ -25,14 +25,15 @@ type MCPClientInterface interface {
 
 // Client manages a connection to a single MCP server via stdio.
 type Client struct {
-	name    string
-	cmd     *exec.Cmd
-	stdin   *bufio.Writer
-	stdout  *bufio.Reader
-	process *os.Process
-	tools   map[string]*Tool
-	mu      sync.Mutex
-	nextID  int
+	name      string
+	cmd       *exec.Cmd
+	stdin     *bufio.Writer
+	stdout    *bufio.Reader
+	process   *os.Process
+	tools     map[string]*Tool
+	mu        sync.Mutex
+	nextID    int
+	closeOnce sync.Once
 }
 
 // NewClient creates a new MCP client based on the transport type.
@@ -290,33 +291,38 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 
 // Close closes the connection to the MCP server.
 func (c *Client) Close() error {
-	if c.process == nil {
-		return nil
-	}
-
-	// Try SIGTERM first.
-	if err := c.process.Signal(os.Interrupt); err != nil {
-		// Process may have already exited; try to kill it instead.
-		_ = c.process.Kill()
-	}
-
-	// Wait for process to exit with a timeout of 3 seconds.
-	done := make(chan error, 1)
-	go func() {
-		done <- c.cmd.Wait()
-	}()
-
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(3 * time.Second):
-		// Timeout: force kill the process
-		if err := c.process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process: %w", err)
+	var closeErr error
+	c.closeOnce.Do(func() {
+		if c.process == nil {
+			return
 		}
-		// Wait for kill to be processed
-		return <-done
-	}
+
+		// Try SIGTERM first.
+		if err := c.process.Signal(os.Interrupt); err != nil {
+			// Process may have already exited; try to kill it instead.
+			_ = c.process.Kill()
+		}
+
+		// Wait for process to exit with a timeout of 3 seconds.
+		done := make(chan error, 1)
+		go func() {
+			done <- c.cmd.Wait()
+		}()
+
+		select {
+		case err := <-done:
+			closeErr = err
+		case <-time.After(3 * time.Second):
+			// Timeout: force kill the process
+			if err := c.process.Kill(); err != nil {
+				closeErr = fmt.Errorf("failed to kill process: %w", err)
+				return
+			}
+			// Wait for kill to be processed
+			closeErr = <-done
+		}
+	})
+	return closeErr
 }
 
 // validateCommand checks that a command is safe to execute.

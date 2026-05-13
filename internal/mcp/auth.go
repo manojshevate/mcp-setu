@@ -77,9 +77,7 @@ func (p *EnvVarTokenProvider) Close() error {
 }
 
 // OAuth2Provider handles OAuth 2.1 authorization flow (per MCP spec 2025-11-25).
-// This implementation supports PKCE and token caching for CLI usage.
-// Note: Full interactive OAuth flow is not yet implemented but is planned.
-// Current usage: Supports token-based auth with caching for server connections.
+// Note: OAuth2 is not yet implemented. Use bearer-token or env auth types instead.
 type OAuth2Provider struct {
 	authServerURL string
 	clientID      string
@@ -183,23 +181,8 @@ func NewTokenProvider(authCfg *config.AuthConfig) (TokenProvider, error) {
 		return NewEnvVarTokenProvider(authCfg.TokenEnvVar), nil
 
 	case "oauth2":
-		if authCfg.AuthorizationServerURL == "" && authCfg.AuthorizationServerEnvVar == "" {
-			return nil, fmt.Errorf("oauth2 auth type requires 'authorizationServerUrl' field or 'authorizationServerEnvVar'")
-		}
-		authServerURL := authCfg.AuthorizationServerURL
-		if authServerURL == "" {
-			authServerURL = os.Getenv(authCfg.AuthorizationServerEnvVar)
-		}
-		if authServerURL == "" {
-			return nil, fmt.Errorf("OAuth 2.1 authorization server URL not configured")
-		}
-
-		// Enforce HTTPS for authorization endpoints (MCP spec 2025-11-25: MUST use HTTPS)
-		if !strings.HasPrefix(authServerURL, "https://") && !strings.HasPrefix(authServerURL, "http://localhost") {
-			return nil, fmt.Errorf("OAuth 2.1 authorization server URL MUST use HTTPS (or http://localhost for development): %s", authServerURL)
-		}
-
-		return NewOAuth2Provider(authServerURL, authCfg.ClientID, authCfg.ClientSecret, authCfg.Scopes), nil
+		return nil, fmt.Errorf(
+			"OAuth2 auth type is not yet implemented; use 'bearer-token' or 'env' auth type instead")
 
 	default:
 		return nil, fmt.Errorf("unknown auth type: %q", authType)
