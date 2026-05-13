@@ -138,7 +138,7 @@ mcp-setu models
 ┌─────────────────────┬────────┬────────────────┐
 │ Model               │ Size   │ Tool Support   │
 ├─────────────────────┼────────┼────────────────┤
-│ gemma4:e4b          │ 4 GB   │ ✓ Yes          │
+│ gemma2:latest          │ 4 GB   │ ✓ Yes          │
 │ qwen2.5:7b          │ 6 GB   │ ✓ Yes          │
 │ llama3.2:3b         │ 2 GB   │ ✓ Yes          │
 │ mistral-nemo:12b    │ 9 GB   │ ✓ Yes          │
@@ -172,7 +172,7 @@ mcp-setu validate
 
 ```
 ✓ Config file valid
-✓ Model gemma4:e4b found and supports tool calling
+✓ Model gemma2:latest found and supports tool calling
 ✓ MCP server "filesystem" connected with 3 tools
 ✓ MCP server "memory" connected with 2 tools
 ✓ All validations passed!
@@ -183,7 +183,7 @@ mcp-setu validate
 ```
 ✗ Model llama2:7b does not support tool calling
 Supported models:
-  ✓ gemma4:e4b
+  ✓ gemma2:latest
   ✓ qwen2.5:7b
   ...
 ```

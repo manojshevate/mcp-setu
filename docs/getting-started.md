@@ -57,10 +57,10 @@ ollama serve
 ### 3. Pull a Model
 
 ```bash
-ollama pull gemma4:e4b
+ollama pull gemma2:latest
 ```
 
-`gemma4:e4b` is recommended for tool calling. See [Supported Models](./configuration.md#supported-models) for alternatives.
+`gemma2:latest` is recommended for tool calling. See [Supported Models](./configuration.md#supported-models) for alternatives.
 
 ### 4. Run mcp-setu
 
@@ -128,7 +128,7 @@ mcp-setu chat
 **"Model not found"**
 
 ```bash
-ollama pull gemma4:e4b
+ollama pull gemma2:latest
 ```
 
 **"Model does not support tool calling"**

@@ -25,7 +25,7 @@ git clone https://github.com/manojshevate/mcp-setu && cd mcp-setu && make instal
 
 ```bash
 ollama serve                                  # in another terminal
-ollama pull gemma3:4b                         # any tool-capable model
+ollama pull gemma2:latest                     # any tool-capable model
 mcp-setu chat                                 # opens the TUI
 ```
 
@@ -33,7 +33,7 @@ A minimal `mcp.json` (Claude Desktop-compatible):
 
 ```json
 {
-  "ollama": { "model": "gemma3:4b" },
+  "ollama": { "model": "gemma2:latest" },
   "mcpServers": {
     "memory": {
       "command": "npx",

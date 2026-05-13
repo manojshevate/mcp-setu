@@ -29,7 +29,7 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make install"
-	@echo "  2. ollama pull gemma4:e4b"
+	@echo "  2. ollama pull gemma2:latest"
 	@echo "  3. mcp-setu chat"
 	@echo ""
 	@echo "Documentation quick start:"
@@ -100,7 +100,9 @@ test-v:
 
 coverage:
 	@echo "Running tests with coverage..."
-	@go test ./internal/bridge -cover
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@go tool cover -func=coverage.out | grep total
 
 clean:
 	@echo "Cleaning..."

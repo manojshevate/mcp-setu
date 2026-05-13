@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -183,12 +184,10 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 		// Add tool results to conversation history in order.
 		for i := range resp.ToolCalls {
 			result := toolResults[i]
-			toolCall := resp.ToolCalls[i]
-			// Add tool result as a message with proper "tool" role and correlation to the tool call.
+			// Add tool result as a message with proper "tool" role.
 			messages = append(messages, ollama.Message{
 				Role:    "tool",
 				Content: result,
-				ToolCall: &toolCall,
 			})
 		}
 	}
@@ -217,6 +216,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 
 	var fullContent strings.Builder
 	var allToolCalls []ollama.ToolCall
+	seenToolCalls := make(map[string]bool) // track tool call names already seen
 	started := false
 
 	// Stream chunks as they arrive in real-time
@@ -237,9 +237,16 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 			b.printer.PrintResponseChunk(event.Content)
 		}
 
-		// Collect tool calls from the event
+		// Collect tool calls from the event, deduplicating by function name
 		if len(event.ToolCalls) > 0 {
-			allToolCalls = append(allToolCalls, event.ToolCalls...)
+			for _, tc := range event.ToolCalls {
+				// Extract tool name
+				toolName, _ := tc.NormalizeToolCall()
+				if !seenToolCalls[toolName] {
+					allToolCalls = append(allToolCalls, tc)
+					seenToolCalls[toolName] = true
+				}
+			}
 		}
 	}
 
@@ -322,6 +329,11 @@ func (b *Bridge) buildToolsList() []ollama.Tool {
 			tools = append(tools, tool)
 		}
 	}
+
+	// Sort tools by name for deterministic output
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].Function.Name < tools[j].Function.Name
+	})
 
 	return tools
 }

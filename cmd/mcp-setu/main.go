@@ -46,6 +46,7 @@ func main() {
 		Use:   "mcp-setu",
 		Short: "MCP bridge for Ollama",
 		Long:  "mcp-setu bridges Ollama to MCP servers for interactive multi-turn chat",
+		Example: "  mcp-setu\n  mcp-setu chat --model qwen2.5:7b",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
 		},
@@ -53,11 +54,14 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "mcp.json", "path to config file")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print tool calls and results")
+	rootCmd.PersistentFlags().StringVar(&modelOverride, "model", "", "override model from config")
+	rootCmd.PersistentFlags().StringVar(&systemOverride, "system", "", "override system prompt from config")
 
 	// Version subcommand.
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version information",
+		Example: "  mcp-setu version",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("mcp-setu version %s\n", version.Version)
 			if version.Commit != "unknown" {
@@ -74,18 +78,18 @@ func main() {
 	chatCmd := &cobra.Command{
 		Use:   "chat",
 		Short: "Start interactive chat session",
+		Example: "  mcp-setu chat\n  mcp-setu chat --model qwen2.5:7b\n  mcp-setu chat --system \"You are a helpful assistant\"",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
 		},
 	}
-	chatCmd.Flags().StringVar(&modelOverride, "model", "", "override model from config")
-	chatCmd.Flags().StringVar(&systemOverride, "system", "", "override system prompt from config")
 	rootCmd.AddCommand(chatCmd)
 
 	// Tools subcommand.
 	toolsCmd := &cobra.Command{
 		Use:   "tools",
 		Short: "List all tools from configured MCP servers",
+		Example: "  mcp-setu tools\n  mcp-setu tools --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTools(cmd.Context())
 		},
@@ -96,6 +100,7 @@ func main() {
 	modelsCmd := &cobra.Command{
 		Use:   "models",
 		Short: "List Ollama models and their tool support status",
+		Example: "  mcp-setu models",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModels(cmd.Context())
 		},
@@ -106,6 +111,7 @@ func main() {
 	validateCmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate config file and test MCP server connectivity",
+		Example: "  mcp-setu validate\n  mcp-setu validate --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runValidate(cmd.Context())
 		},
@@ -177,7 +183,6 @@ func runChat(ctx context.Context) error {
 	// Signal handler goroutine.
 	go func() {
 		<-sigCh
-		printer.PrintSuccess("Shutting down...")
 		cancel()
 	}()
 
@@ -254,6 +259,16 @@ func runValidate(ctx context.Context) error {
 	}
 
 	printer.PrintSuccess("Config file valid")
+
+	// Pre-flight: check required env vars are set
+	for name, serverCfg := range cfg.MCPServers {
+		if serverCfg.Auth != nil && serverCfg.Auth.TokenEnvVar != "" {
+			if os.Getenv(serverCfg.Auth.TokenEnvVar) == "" {
+				printer.PrintError(fmt.Sprintf("Server %q requires env var %q but it is not set", name, serverCfg.Auth.TokenEnvVar))
+				return fmt.Errorf("missing required env var %q for server %q", serverCfg.Auth.TokenEnvVar, name)
+			}
+		}
+	}
 
 	// Test Ollama connectivity.
 	ollamaClient := ollama.NewClient(cfg.Ollama.BaseURL)
