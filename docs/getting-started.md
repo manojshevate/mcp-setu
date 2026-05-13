@@ -106,17 +106,42 @@ User sees the answer
 
 ## Explore Key Commands
 
-Once in the chat, type `/` to open the slash-command autocomplete, navigate with `↑`/`↓`, and press `Tab` to accept. Use `↑`/`↓` (when not autocompleting) to recall previous inputs.
+Once in the chat, type `/` to open the slash-command autocomplete. The dropdown appears **above** the input field for better visibility.
 
-| Command           | What it does              |
-|-------------------|---------------------------|
-| `/tools`          | Show all available tools  |
-| `/model [name]`   | Show or switch model      |
-| `/stats`          | Performance metrics       |
-| `/servers`        | Connected MCP servers     |
-| `/clear`          | Reset conversation        |
-| `/help`           | Show all commands         |
-| `/quit` / `/exit` | Quit (also `Ctrl+C`)      |
+### Navigation
+
+| Keys | What it does |
+|------|--------------|
+| `/` | Trigger autocomplete dropdown (appears above input) |
+| `↑` / `↓` | Navigate history (or menu options when autocompleting) |
+| `Tab` | Accept the selected suggestion |
+| `Esc` | Dismiss autocomplete or exit model picker |
+
+### Commands
+
+| Command | What it does |
+|---------|--------------|
+| `/tools` | Show all available tools |
+| `/model` | **Interactive model picker** — navigate with ↑↓, select with Enter |
+| `/model <space>` | **Autocomplete model names** — use Tab to complete |
+| `/model <name>` | Switch to specific model directly |
+| `/stats` | Performance metrics |
+| `/servers` | Connected MCP servers |
+| `/clear` | Reset conversation |
+| `/help` | Show all commands |
+| `/quit` / `/exit` | Quit (also `Ctrl+C`) |
+
+### Real-Time Feedback
+
+While your model is thinking, a **live elapsed timer** shows above the input:
+
+```
+⟳ thinking… 2s
+⟳ thinking… 45s
+⟳ thinking… 2m 15s
+```
+
+This makes it easy to see how long the model has been processing your request.
 
 Try `/tools` to see what MCP servers are connected.
 

@@ -59,27 +59,39 @@ mcp-setu chat [flags]
 
 **Key bindings:**
 
-| Keys                | What it does                            |
-|---------------------|-----------------------------------------|
-| `↑` / `↓`           | Cycle through previous inputs           |
-| `/`                 | Open slash-command autocomplete         |
-| `↑` / `↓` (in autocomplete) | Move selection                  |
-| `Tab`               | Accept the selected suggestion          |
-| `Enter`             | Submit                                  |
-| `Ctrl+C` / `Ctrl+D` | Exit                                    |
+| Keys                | What it does                                          |
+|---------------------|-------------------------------------------------------|
+| `↑` / `↓`           | Cycle through previous inputs (or navigate menu options) |
+| `/`                 | Trigger slash-command autocomplete (appears above input) |
+| `Tab`               | Accept the selected suggestion                        |
+| `Esc`               | Dismiss autocomplete or exit model picker             |
+| `Enter`             | Submit                                                |
+| `Ctrl+C` / `Ctrl+D` | Exit                                                  |
 
 **Chat commands** (typed at the prompt):
 
-| Command          | Purpose                                  |
-|------------------|------------------------------------------|
-| `/tools`         | List all available tools                 |
-| `/clear`         | Clear conversation history               |
-| `/model`         | Show current model and available options |
-| `/model <name>`  | Switch to a different model              |
-| `/stats`         | Show performance statistics              |
-| `/servers`       | Show connected MCP servers               |
-| `/help`          | Show chat help                           |
-| `/quit`, `/exit` | Quit the session                         |
+| Command           | Purpose                                              |
+|-------------------|------------------------------------------------------|
+| `/tools`          | List all available tools                             |
+| `/clear`          | Clear conversation history                           |
+| `/model`          | Open interactive model picker (↑↓ navigate, Enter to select) |
+| `/model <space>`  | Autocomplete model names (Tab to complete)          |
+| `/model <name>`   | Switch to a specific model directly                 |
+| `/stats`          | Show performance statistics                          |
+| `/servers`        | Show connected MCP servers                           |
+| `/help`           | Show chat help                                       |
+| `/quit`, `/exit`  | Quit the session                                     |
+
+**Processing Status:**
+
+While your model is thinking, a live elapsed timer appears above the input:
+
+```
+⟳ thinking… 2s
+⟳ thinking… 1m 30s
+```
+
+The timer updates every second and uses the format `Xs` for under 60 seconds and `Xm Ys` for longer durations.
 
 **Examples:**
 
