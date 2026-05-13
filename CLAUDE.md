@@ -44,6 +44,12 @@ The `internal/tui/` package provides an interactive chat session with advanced i
   - Typing while in picker: Exits picker and starts fresh text entry
   - Up/Down arrows: Navigate history in normal mode, navigate options in picker/autocomplete
 
+- **Processing Status**:
+  - While LLM processes a request, elapsed time is displayed: "thinking… 2s", "thinking… 1m 30s"
+  - Timer updates every second with clean integer formatting
+  - Shows minutes and seconds for durations >= 60 seconds (e.g., "2m 3s")
+  - Calculated lazily in View() using existing event loop; no separate timer required
+
 ## Common Commands
 
 ```bash

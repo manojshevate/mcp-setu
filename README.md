@@ -84,6 +84,18 @@ The interactive chat is a full-screen TUI with the input pinned at the bottom an
 - Type `/model ` (with space) → Shows autocomplete suggestions for available model names (use Tab to complete)
 - Type `/model gemma2:latest` → Directly switch to the specified model
 
+### Processing Status
+
+While the LLM is processing your request, a live elapsed time counter is displayed above the input:
+
+```
+⟳ thinking… 2s
+⟳ thinking… 45s
+⟳ thinking… 2m 15s
+```
+
+The timer updates every second, making it easy to see how long the model has been thinking.
+
 Pass `--verbose` to see tool calls and LLM iterations inside the TUI:
 
 ```bash
