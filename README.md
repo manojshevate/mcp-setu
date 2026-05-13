@@ -1,5 +1,8 @@
 # mcp-setu
 
+[![Tests](https://github.com/manojshevate/mcp-setu/actions/workflows/test.yml/badge.svg)](https://github.com/manojshevate/mcp-setu/actions/workflows/test.yml)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://manojshevate.github.io/mcp-setu/)
+
 A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontextprotocol.io) servers, giving local language models tool-calling abilities in a modern interactive chat TUI. Drop-in compatible with your existing Claude Desktop `mcp.json`.
 
 ```
