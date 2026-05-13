@@ -124,7 +124,7 @@ func (m *SessionModel) appendBanner() {
 
 // Init fires the event-poller and eagerly fetches the local model list so
 // that autocomplete and the picker are populated from the very first keystroke.
-func (m SessionModel) Init() tea.Cmd {
+func (m *SessionModel) Init() tea.Cmd {
 	return tea.Batch(m.waitForEvent(), m.fetchModels())
 }
 
@@ -148,7 +148,7 @@ func (m SessionModel) fetchModels() tea.Cmd {
 	}
 }
 
-func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
@@ -270,7 +270,7 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	status line  (only when processing)
 //	autocomplete / picker overlay  (above the input line)
 //	❯ input line
-func (m SessionModel) View() string {
+func (m *SessionModel) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}

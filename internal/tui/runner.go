@@ -25,7 +25,7 @@ func RunChat(
 ) error {
 	_ = printer
 	sessionModel := NewSessionModel(ctx, br, mcpClient, ollamaClient, model, systemPrompt, verbose)
-	p := tea.NewProgram(sessionModel, tea.WithAltScreen())
+	p := tea.NewProgram(&sessionModel, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }

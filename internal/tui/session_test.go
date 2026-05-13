@@ -11,11 +11,12 @@ import (
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 )
 
-func newTestSession(t *testing.T) SessionModel {
+func newTestSession(t *testing.T) *SessionModel {
 	t.Helper()
 	mcpClient := mcp.NewMultiClient()
 	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, 4096, nil)
-	return NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
+	m := NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
+	return &m
 }
 
 func TestSessionViewRendersWithoutSize(t *testing.T) {
@@ -28,7 +29,7 @@ func TestSessionViewRendersWithoutSize(t *testing.T) {
 func TestSessionViewRendersWithSize(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	out := m.View()
 	if out == "" {
 		t.Fatal("expected non-empty view")
@@ -52,7 +53,7 @@ func TestSessionViewRendersWithSize(t *testing.T) {
 func TestSessionEventHandling(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 
 	// Feed streaming response events.
 	m.handleEvent(Event{Kind: EventRespStart})
@@ -69,11 +70,11 @@ func TestSessionEventHandling(t *testing.T) {
 func TestSessionTickDoesNotPolluteOutput(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	baseline := len(m.output)
 	for i := 0; i < 50; i++ {
 		mu, _ := m.Update(tickMsg{})
-		m = mu.(SessionModel)
+		m = mu.(*SessionModel)
 	}
 	if len(m.output) != baseline {
 		t.Errorf("ticks polluted output: was %d, now %d", baseline, len(m.output))
@@ -105,7 +106,7 @@ func TestFormatElapsed(t *testing.T) {
 func TestSessionStreamingResponseAccumulates(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m = mUpdated.(SessionModel)
+	m = mUpdated.(*SessionModel)
 	m.handleEvent(Event{Kind: EventRespStart})
 	for _, c := range []string{"a", "b", "c"} {
 		m.handleEvent(Event{Kind: EventRespChunk, Text: c})
