@@ -104,9 +104,14 @@ Ollama (generates response)
 User sees the answer
 ```
 
-## Explore Key Commands
+## Chat Interface Details
 
-Once in the chat, type `/` to open the slash-command autocomplete. The dropdown appears **above** the input field for better visibility.
+The chat TUI has a clean, modern layout with an input box pinned at the bottom and scrolling content above. Here's what you'll see:
+
+- **Bordered Input Box**: Your messages are typed in a styled box with rounded corners
+- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., "◆ gemma2:latest")
+- **Cursor Position**: The cursor starts at the beginning of the input field (like Claude Code) and moves naturally as you type
+- **Autocomplete Dropdown**: When you type `/`, suggestions appear **above** the input field for better visibility
 
 ### Navigation
 

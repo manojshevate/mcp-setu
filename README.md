@@ -54,7 +54,14 @@ mcp-setu --config ~/Library/Application\ Support/Claude/claude_desktop_config.js
 
 ## Chat TUI
 
-The interactive chat is a full-screen TUI with the input pinned at the bottom and a scrolling output area on top.
+The interactive chat is a full-screen TUI with the input pinned at the bottom in a bordered box and a scrolling output area on top. The currently active model is shown as a badge in the bottom-right corner.
+
+### Input Box
+
+- The input field starts with the cursor at the beginning (like Claude Code)
+- As you type, text appears after the cursor, which moves naturally through your input
+- Use `↑` and `↓` to navigate through your command history
+- The input box automatically wraps long text across multiple lines while staying pinned at the bottom
 
 ### Navigation & Input
 
