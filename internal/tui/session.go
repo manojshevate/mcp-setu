@@ -23,6 +23,14 @@ var (
 	styleWarning   = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
 	styleError     = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
 	styleSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("#374151"))
+
+	styleInputBox = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#374151")).
+			Padding(0, 1)
+
+	styleModelBadge = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
 )
 
 // modelsLoadedMsg is fired when the background model fetch completes.
@@ -154,7 +162,7 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.SetWidth(m.width - 4)
+		m.input.SetWidth(m.width - 6)
 		return m, nil
 
 	case modelsLoadedMsg:
@@ -268,8 +276,11 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	output area  (scrolling)
 //	separator
 //	status line  (only when processing)
-//	autocomplete / picker overlay  (above the input line)
-//	❯ input line
+//	autocomplete / picker overlay  (above the input box)
+//	╭─────────────────────────────────────────╮
+//	│ ❯ input                                 │
+//	╰─────────────────────────────────────────╯
+//	                              ◆ model-name
 func (m *SessionModel) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
@@ -277,7 +288,18 @@ func (m *SessionModel) View() string {
 
 	// Bottom-pinned chrome.
 	separator := styleSeparator.Render(strings.Repeat("─", m.width))
-	inputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
+
+	// Input box: border wraps the prompt+input line (3 rows: top border, content, bottom border).
+	rawInputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
+	inputBox := styleInputBox.Render(rawInputLine)
+
+	// Model footer: right-aligned badge below the input box.
+	modelFooter := ""
+	if m.model != "" {
+		badge := styleModelBadge.Render("◆ " + truncateModel(m.model, m.width))
+		modelFooter = lipgloss.PlaceHorizontal(m.width, lipgloss.Right, badge)
+	}
+
 	statusLine := ""
 	if m.status != "" {
 		s := m.status
@@ -289,13 +311,16 @@ func (m *SessionModel) View() string {
 	acBlock := m.input.RenderAutocomplete()
 
 	// Calculate how many rows the bottom chrome consumes.
-	// separator (1) + optional status (1) + optional AC/picker + input (1).
+	// separator (1) + optional status (1) + optional AC/picker + inputBox (3) + modelFooter (1).
 	acLines := 0
 	if acBlock != "" {
 		acLines = strings.Count(acBlock, "\n") + 1
 	}
-	chromeHeight := 1 + 1 + acLines // separator + input + ac
+	chromeHeight := 1 + 3 + acLines // separator + inputBox (3 rows) + ac
 	if statusLine != "" {
+		chromeHeight++
+	}
+	if modelFooter != "" {
 		chromeHeight++
 	}
 	outputHeight := m.height - chromeHeight
@@ -318,7 +343,10 @@ func (m *SessionModel) View() string {
 	if acBlock != "" {
 		parts = append(parts, acBlock)
 	}
-	parts = append(parts, inputLine)
+	parts = append(parts, inputBox)
+	if modelFooter != "" {
+		parts = append(parts, modelFooter)
+	}
 	return strings.Join(parts, "\n")
 }
 
@@ -568,4 +596,30 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 		infos = append(infos, ui.ModelInfo{Name: mod.Name, Size: mod.Size})
 	}
 	return infos, nil
+}
+
+// truncateModel shortens a model name to roughly one-third of the terminal
+// width, appending "…" if truncation occurs. It uses lipgloss.Width for
+// ANSI-aware measurement. Returns the name unchanged when width < 12.
+func truncateModel(name string, termWidth int) string {
+	if termWidth < 12 {
+		return name
+	}
+	maxLen := termWidth / 3
+	if maxLen < 4 {
+		maxLen = 4
+	}
+	if lipgloss.Width(name) <= maxLen {
+		return name
+	}
+	// Trim rune by rune until we fit (maxLen-1 visible cols + "…").
+	runes := []rune(name)
+	for len(runes) > 0 {
+		candidate := string(runes) + "…"
+		if lipgloss.Width(candidate) <= maxLen {
+			return candidate
+		}
+		runes = runes[:len(runes)-1]
+	}
+	return "…"
 }

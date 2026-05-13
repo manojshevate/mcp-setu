@@ -44,9 +44,41 @@ func TestSessionViewRendersWithSize(t *testing.T) {
 	if len(lines) != 24 {
 		t.Errorf("expected exactly 24 lines (terminal height), got %d", len(lines))
 	}
-	// Input prompt should be on the LAST line.
-	if !strings.Contains(lines[len(lines)-1], "❯") {
-		t.Errorf("expected ❯ prompt on last line, got: %q", lines[len(lines)-1])
+	// Input prompt should be on the third-from-last line (inside the border box):
+	// lines[len-1] = model footer, lines[len-2] = bottom border, lines[len-3] = input content line,
+	// lines[len-4] = top border.
+	if !strings.Contains(lines[len(lines)-3], "❯") {
+		t.Errorf("expected ❯ prompt on third-from-last line (input box content), got: %q", lines[len(lines)-3])
+	}
+	// Model footer should appear on the last line.
+	if !strings.Contains(lines[len(lines)-1], "◆") {
+		t.Errorf("expected model indicator (◆) on last line, got: %q", lines[len(lines)-1])
+	}
+	// At least one line should contain a border glyph from the rounded border.
+	hasBorder := false
+	for _, l := range lines {
+		if strings.ContainsAny(l, "╭╮╰╯") {
+			hasBorder = true
+			break
+		}
+	}
+	if !hasBorder {
+		t.Errorf("expected at least one line with a rounded border glyph (╭╮╰╯), none found in:\n%s", out)
+	}
+}
+
+func TestSessionViewNarrowTerminal(t *testing.T) {
+	m := newTestSession(t)
+	// Very narrow terminal — should not panic or produce wrong line count.
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 12})
+	m = mUpdated.(*SessionModel)
+	out := m.View()
+	if out == "" {
+		t.Fatal("expected non-empty view for narrow terminal")
+	}
+	lines := strings.Split(out, "\n")
+	if len(lines) != 12 {
+		t.Errorf("expected exactly 12 lines for narrow terminal, got %d", len(lines))
 	}
 }
 
