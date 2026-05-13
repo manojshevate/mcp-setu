@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
@@ -76,6 +77,28 @@ func TestSessionTickDoesNotPolluteOutput(t *testing.T) {
 	}
 	if len(m.output) != baseline {
 		t.Errorf("ticks polluted output: was %d, now %d", baseline, len(m.output))
+	}
+}
+
+func TestFormatElapsed(t *testing.T) {
+	cases := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0 * time.Second, "0s"},
+		{1 * time.Second, "1s"},
+		{59 * time.Second, "59s"},
+		{60 * time.Second, "1m 0s"},
+		{61 * time.Second, "1m 1s"},
+		{123 * time.Second, "2m 3s"},
+		{3600 * time.Second, "60m 0s"},
+		{-1 * time.Second, "0s"},
+	}
+	for _, tc := range cases {
+		got := formatElapsed(tc.d)
+		if got != tc.want {
+			t.Errorf("formatElapsed(%v) = %q, want %q", tc.d, got, tc.want)
+		}
 	}
 }
 

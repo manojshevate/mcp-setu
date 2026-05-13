@@ -57,14 +57,15 @@ type SessionModel struct {
 	history []ollama.Message
 
 	// rendering
-	output      []string // logical lines (already split on '\n')
-	input       InputModel
-	respBuf     strings.Builder // accumulates streaming chunks
-	respActive  bool
-	status      string
-	processing  bool
-	eventCh     chan Event
-	printerWire bool // set true after the TUI printer is installed on the bridge
+	output          []string // logical lines (already split on '\n')
+	input           InputModel
+	respBuf         strings.Builder // accumulates streaming chunks
+	respActive      bool
+	status          string
+	processing      bool
+	processingStart time.Time
+	eventCh         chan Event
+	printerWire     bool // set true after the TUI printer is installed on the bridge
 }
 
 func NewSessionModel(
@@ -227,6 +228,7 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.history = append(m.history, ollama.Message{Role: "user", Content: value})
 			m.processing = true
+			m.processingStart = time.Now()
 			m.status = "⟳ thinking…"
 			return m, tea.Batch(m.runBridge(value), m.waitForEvent())
 		}
@@ -243,6 +245,7 @@ func (m SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case bridgeDoneMsg:
 		m.processing = false
+		m.processingStart = time.Time{}
 		m.status = ""
 		if msg.err != nil {
 			m.appendError(msg.err.Error())
@@ -277,7 +280,11 @@ func (m SessionModel) View() string {
 	inputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
 	statusLine := ""
 	if m.status != "" {
-		statusLine = styleMuted.Render(m.status)
+		s := m.status
+		if m.processing && !m.processingStart.IsZero() {
+			s = s + " " + formatElapsed(time.Since(m.processingStart))
+		}
+		statusLine = styleMuted.Render(s)
 	}
 	acBlock := m.input.RenderAutocomplete()
 
@@ -536,6 +543,19 @@ func (m SessionModel) runBridge(_ string) tea.Cmd {
 		content, err := m.br.ProcessMessage(m.ctx, m.history)
 		return bridgeDoneMsg{content: content, err: err}
 	}
+}
+
+// formatElapsed formats a duration as "Xs" for under 60 seconds, or "Xm Ys"
+// for 60 seconds and above. Negative durations are clamped to 0.
+func formatElapsed(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	secs := int(d.Truncate(time.Second).Seconds())
+	if secs < 60 {
+		return fmt.Sprintf("%ds", secs)
+	}
+	return fmt.Sprintf("%dm %ds", secs/60, secs%60)
 }
 
 func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo, error) {
