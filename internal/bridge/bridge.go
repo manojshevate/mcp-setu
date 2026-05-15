@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/manojshevate/mcp-setu/internal/logger"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 )
@@ -63,13 +64,14 @@ type Bridge struct {
 	temperature   float64
 	contextLength int
 	printer       Printer
+	logger        *logger.Logger
 	stats         Stats
 	startTime     time.Time
 	mu            sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
-func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, contextLength int, printer Printer) *Bridge {
+func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, contextLength int, printer Printer, log *logger.Logger) *Bridge {
 	return &Bridge{
 		ollamaClient:  ollamaClient,
 		mcpClient:     mcpClient,
@@ -77,6 +79,7 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 		temperature:   temperature,
 		contextLength: contextLength,
 		printer:       printer,
+		logger:        log,
 		startTime:     time.Now(),
 	}
 }
@@ -150,6 +153,14 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 	start := time.Now()
 
+	// Log user message (last message in history before processing).
+	if len(messages) > 0 {
+		lastMsg := messages[len(messages)-1]
+		if lastMsg.Role == "user" {
+			b.logger.LogUserMessage(lastMsg.Content)
+		}
+	}
+
 	// Build tools list for Ollama.
 	tools := b.buildToolsList()
 
@@ -196,6 +207,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			b.stats.IterationCount += iteration
 			b.stats.LastResponseTime = duration
 			b.mu.Unlock()
+			b.logger.LogLLMResponse(resp.Content)
 			return resp.Content, nil
 		}
 
@@ -288,6 +300,11 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		ToolCalls: allToolCalls,
 	}
 
+	// Log response with tool calls if present
+	if len(allToolCalls) > 0 && fullContent.Len() > 0 {
+		b.logger.LogInfo(fmt.Sprintf("LLM response with %d tool calls: %s", len(allToolCalls), fullContent.String()))
+	}
+
 	return msg, nil
 }
 
@@ -315,14 +332,17 @@ func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCa
 			toolName, toolArgs := toolCall.NormalizeToolCall()
 
 			b.printer.PrintToolCall(toolName, toolArgs)
+			b.logger.LogToolCall(toolName, toolArgs)
 
 			result, err := b.mcpClient.CallTool(ctx, toolName, toolArgs)
+			success := err == nil
 			if err != nil {
 				result = fmt.Sprintf("error: %v", err)
 				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", toolName, err))
 			}
 
 			b.printer.PrintToolResult(toolName, result, len(result) > 120)
+			b.logger.LogToolResult(toolName, result, success)
 			results[index] = result
 		}(i, call)
 	}

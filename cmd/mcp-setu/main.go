@@ -14,6 +14,7 @@ import (
 
 	"github.com/manojshevate/mcp-setu/internal/bridge"
 	"github.com/manojshevate/mcp-setu/internal/config"
+	"github.com/manojshevate/mcp-setu/internal/logger"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 	"github.com/manojshevate/mcp-setu/internal/tui"
@@ -24,6 +25,7 @@ import (
 var (
 	configPath     string
 	verbose        bool
+	debug          bool
 	modelOverride  string
 	systemOverride string
 )
@@ -60,6 +62,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "mcp.json", "path to config file")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "print tool calls and results")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging to ~/.mcp-setu/session-id.log")
 	rootCmd.PersistentFlags().StringVar(&modelOverride, "model", "", "override model from config")
 	rootCmd.PersistentFlags().StringVar(&systemOverride, "system", "", "override system prompt from config")
 
@@ -143,6 +146,18 @@ func main() {
 func runChat(ctx context.Context) error {
 	printer := ui.NewPrinter(verbose)
 
+	// Create logger if debug flag is set.
+	log, err := logger.New(debug)
+	if err != nil {
+		printer.PrintError(fmt.Sprintf("Failed to initialize debug logger: %v", err))
+		return err
+	}
+	defer log.Close()
+
+	if debug {
+		printer.PrintSuccess(fmt.Sprintf("Debug logging enabled: ~/.mcp-setu/%s.log", log.SessionID()))
+	}
+
 	// Load config.
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -189,7 +204,7 @@ func runChat(ctx context.Context) error {
 
 	// Create bridge. Banner is rendered inside the TUI, not before it starts,
 	// so it doesn't get scrolled off-screen by AltScreen initialization.
-	br := bridge.NewBridge(ollamaClient, mcpClient, model, *cfg.Ollama.Temperature, *cfg.Ollama.ContextLength, printer)
+	br := bridge.NewBridge(ollamaClient, mcpClient, model, *cfg.Ollama.Temperature, *cfg.Ollama.ContextLength, printer, log)
 
 	// Setup signal handling with context cancellation (inherit parent context).
 	ctx, cancel := context.WithCancel(ctx)
