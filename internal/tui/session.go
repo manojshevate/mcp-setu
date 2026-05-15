@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manojshevate/mcp-setu/internal/bridge"
+	"github.com/manojshevate/mcp-setu/internal/content"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 	"github.com/manojshevate/mcp-setu/internal/ui"
@@ -700,6 +701,10 @@ func (m *SessionModel) handleEvent(ev Event) {
 				m.appendAssistant(final)
 			}
 		}
+	case EventStructuredContent:
+		if ev.StructuredContent != nil {
+			m.appendStructuredContent(ev.StructuredContent)
+		}
 	}
 }
 
@@ -724,6 +729,22 @@ func (m *SessionModel) appendAssistant(text string) {
 
 func (m *SessionModel) appendError(msg string) {
 	m.appendOutput(styleError.Render("error: ") + msg)
+}
+
+func (m *SessionModel) appendStructuredContent(sc *content.StructuredContent) {
+	// Get terminal width for rendering
+	width := m.width - 4 // Account for padding
+	if width < 40 {
+		width = 40
+	}
+
+	renderer := content.NewRenderer(width)
+	formatted := renderer.Render(sc)
+
+	// Split formatted output into lines and append
+	lines := strings.Split(strings.TrimRight(formatted, "\n"), "\n")
+	m.appendOutput(lines...)
+	m.appendOutput("")
 }
 
 // ───────────────────────── commands ─────────────────────────

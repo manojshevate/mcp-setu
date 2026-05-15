@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"time"
+
+	"github.com/manojshevate/mcp-setu/internal/content"
 )
 
 // EventKind classifies a TUI output event.
@@ -15,12 +17,14 @@ const (
 	EventRespEnd
 	EventWarning
 	EventError
+	EventStructuredContent // structured content (table, list, etc.)
 )
 
 // Event is a single output emission from the bridge or commands.
 type Event struct {
-	Kind EventKind
-	Text string
+	Kind               EventKind
+	Text               string
+	StructuredContent  *content.StructuredContent `json:"-"` // not serialized
 }
 
 // Printer is the TUI's event-emitting printer. It satisfies bridge.Printer.
@@ -100,4 +104,8 @@ func (p *Printer) PrintToolResult(name string, result string, truncated bool) {
 		display = display[:120] + "…"
 	}
 	p.emitLog(Event{Kind: EventLog, Text: fmt.Sprintf("↳ %s", display)})
+}
+
+func (p *Printer) PrintStructuredContent(sc *content.StructuredContent) {
+	p.emit(Event{Kind: EventStructuredContent, StructuredContent: sc})
 }

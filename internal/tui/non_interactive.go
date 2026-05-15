@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/manojshevate/mcp-setu/internal/bridge"
+	"github.com/manojshevate/mcp-setu/internal/content"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 )
 
@@ -57,6 +58,12 @@ func (p *nonInteractivePrinter) PrintToolResult(name string, result string, trun
 		display = display[:120] + "..."
 	}
 	fmt.Fprintf(os.Stderr, "tool result: %s\n", display)
+}
+
+func (p *nonInteractivePrinter) PrintStructuredContent(sc *content.StructuredContent) {
+	renderer := content.NewRenderer(120)
+	formatted := renderer.Render(sc)
+	fmt.Print(formatted)
 }
 
 // RunNonInteractive runs a simple line-based chat loop for non-TTY environments

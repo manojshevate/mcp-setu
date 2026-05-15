@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/manojshevate/mcp-setu/internal/content"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"golang.org/x/term"
 )
@@ -501,4 +502,19 @@ func GetServersTableInfo(mcpClient *mcp.MultiClient) []ServerInfo {
 		}
 	}
 	return servers
+}
+
+// PrintStructuredContent renders structured content (tables, lists, etc.)
+func (p *Printer) PrintStructuredContent(sc *content.StructuredContent) {
+	// Detect terminal width
+	width := 120
+	if fd := int(os.Stdout.Fd()); fd >= 0 {
+		if w, _, err := term.GetSize(fd); err == nil && w > 0 {
+			width = w
+		}
+	}
+
+	renderer := content.NewRenderer(width)
+	formatted := renderer.Render(sc)
+	fmt.Print(formatted)
 }

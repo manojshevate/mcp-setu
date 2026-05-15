@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/manojshevate/mcp-setu/internal/content"
 	"github.com/manojshevate/mcp-setu/internal/logger"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
@@ -24,6 +25,7 @@ type Printer interface {
 	PrintResponseEnd()
 	PrintToolCall(name string, args map[string]any)
 	PrintToolResult(name string, result string, truncated bool)
+	PrintStructuredContent(sc *content.StructuredContent)
 }
 
 // OllamaClient defines the interface for Ollama API interactions.
@@ -383,4 +385,14 @@ func (b *Bridge) buildToolsList() []ollama.Tool {
 	})
 
 	return tools
+}
+
+// IsStructuredContent checks if the response is JSON-wrapped structured content
+func (b *Bridge) IsStructuredContent(response string) bool {
+	return content.IsStructuredContent(response)
+}
+
+// ParseStructuredContent parses a structured content response
+func (b *Bridge) ParseStructuredContent(response string) (*content.StructuredContent, error) {
+	return content.ParseStructuredContent([]byte(response))
 }
