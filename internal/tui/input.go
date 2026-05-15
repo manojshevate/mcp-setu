@@ -17,9 +17,7 @@ const (
 	modeModelSelect                   // interactive model picker (no text entry)
 )
 
-// SendMsg is a message fired when the user confirms their input for sending
-// (Ctrl+Enter or Cmd+Enter in multiline mode, or Enter in single-line mode
-// when multiline is disabled).
+// SendMsg represents pressing Enter to send the message
 type SendMsg struct{}
 
 type InputModel struct {

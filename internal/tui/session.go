@@ -407,7 +407,7 @@ func (m *SessionModel) View() string {
 	// Scroll indicator: show "↑ N lines above" when scrolled up.
 	scrollIndicator := ""
 	if m.scrollOffset > 0 {
-		scrollIndicator = styleMuted.Render(fmt.Sprintf("  ↑ %d lines above  (PgUp/PgDn to scroll)", m.scrollOffset))
+		scrollIndicator = styleMuted.Render(fmt.Sprintf("  ↑ %d lines above  (Page Up/Down or Fn+↑/↓ on Mac)", m.scrollOffset))
 		// Replace the last visual line with the indicator so it overlays the content.
 		if len(visual) > 0 {
 			visual[len(visual)-1] = scrollIndicator
@@ -722,6 +722,13 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 			"  /clear          Clear conversation history",
 			"  /help           Show this help",
 			"  /quit, /exit    Exit",
+			"",
+			"Key Bindings:",
+			"  Enter           Send message",
+			"  Alt+Enter       Insert newline (multiline mode)",
+			"  Page Up/Down    Scroll message history",
+			"  Left/Right/Home/End  Navigate in input",
+			"  Ctrl+C          Exit",
 		})
 		return nil, true
 
