@@ -135,6 +135,145 @@ func TestFormatElapsed(t *testing.T) {
 	}
 }
 
+func TestSessionViewRendersHeader(t *testing.T) {
+	m := newTestSession(t)
+	// Terminal tall enough to show the header.
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	out := m.View()
+	// The header should contain the ASCII art logo text.
+	if !strings.Contains(out, "MCP-SETU") {
+		t.Errorf("expected 'MCP-SETU' in header, got:\n%s", out)
+	}
+}
+
+func TestSessionViewScrollPgUp(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+
+	// Add many output lines to make scrolling meaningful.
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+
+	// PgUp should increase scrollOffset.
+	before := m.scrollOffset
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	if m.scrollOffset <= before {
+		t.Errorf("expected scrollOffset to increase after PgUp, got %d (was %d)", m.scrollOffset, before)
+	}
+}
+
+func TestSessionViewScrollPgDown(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Scroll up first.
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	scrolled := m.scrollOffset
+
+	// PgDown should decrease scrollOffset.
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = mu.(*SessionModel)
+	if m.scrollOffset >= scrolled {
+		t.Errorf("expected scrollOffset to decrease after PgDown, got %d (was %d)", m.scrollOffset, scrolled)
+	}
+}
+
+func TestSessionViewScrollEnd(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Scroll up.
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	if m.scrollOffset == 0 {
+		t.Skip("scrollOffset did not increase, skipping End test")
+	}
+	// End should reset scroll to 0.
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m = mu.(*SessionModel)
+	if m.scrollOffset != 0 {
+		t.Errorf("expected scrollOffset=0 after End, got %d", m.scrollOffset)
+	}
+}
+
+func TestSessionViewScrollHome(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Home should set scrollOffset to a large value (top of history).
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = mu.(*SessionModel)
+	if m.scrollOffset <= 0 {
+		t.Errorf("expected scrollOffset > 0 after Home, got %d", m.scrollOffset)
+	}
+}
+
+func TestSessionSendMsg(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = mUpdated.(*SessionModel)
+
+	// Type some text.
+	for _, r := range "hello world" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	if m.input.GetValue() != "hello world" {
+		t.Fatalf("expected 'hello world' in input, got %q", m.input.GetValue())
+	}
+
+	// SendMsg should dispatch the input (clears the buffer and queues bridge).
+	// We just check the input is cleared; the bridge call errors gracefully.
+	mu, _ := m.Update(SendMsg{})
+	m = mu.(*SessionModel)
+	// After send, input is cleared.
+	if m.input.GetValue() != "" {
+		t.Errorf("expected empty input after SendMsg, got %q", m.input.GetValue())
+	}
+}
+
+func TestSessionMultilineInput(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = mUpdated.(*SessionModel)
+
+	// Type "line1", press Enter, type "line2".
+	for _, r := range "line1" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = mu.(*SessionModel)
+	for _, r := range "line2" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+
+	v := m.input.GetValue()
+	if !strings.Contains(v, "\n") {
+		t.Errorf("expected newline in multiline input value, got %q", v)
+	}
+	if m.input.LineCount() != 2 {
+		t.Errorf("expected 2 lines in input, got %d", m.input.LineCount())
+	}
+}
+
 func TestSessionStreamingResponseAccumulates(t *testing.T) {
 	m := newTestSession(t)
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
