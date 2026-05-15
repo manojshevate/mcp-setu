@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"time"
 )
 
 // EventKind classifies a TUI output event.
@@ -36,7 +37,13 @@ func NewPrinter(ch chan<- Event, verbose bool) *Printer {
 }
 
 func (p *Printer) emit(ev Event) {
-	p.ch <- ev  // blocking: bridge slows down under backpressure
+	// Use a 2-second timeout to prevent deadlock if the TUI event loop is stuck.
+	// Critical events (response chunks, errors) should always be delivered, but
+	// we must not block indefinitely if the consumer has gone away.
+	select {
+	case p.ch <- ev:
+	case <-time.After(2 * time.Second):
+	}
 }
 
 func (p *Printer) emitLog(ev Event) {
