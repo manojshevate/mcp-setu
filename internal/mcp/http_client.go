@@ -195,7 +195,9 @@ func (c *HTTPStreamableClient) sendRequest(ctx context.Context, method string, p
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request params: %w", err)
 		}
-		_ = json.Unmarshal(paramJSON, &req.Params)
+		if err := json.Unmarshal(paramJSON, &req.Params); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to unmarshal request params: %v\n", err)
+		}
 	}
 
 	reqData, err := json.Marshal(req)
@@ -460,7 +462,9 @@ func (c *HTTPSSEClient) sendRequest(ctx context.Context, method string, params a
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request params: %w", err)
 		}
-		_ = json.Unmarshal(paramJSON, &req.Params)
+		if err := json.Unmarshal(paramJSON, &req.Params); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to unmarshal request params: %v\n", err)
+		}
 	}
 
 	reqData, err := json.Marshal(req)

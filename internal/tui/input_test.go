@@ -496,3 +496,51 @@ func TestPluralLines(t *testing.T) {
 		t.Errorf("pluralLines(3) = %q, want '3 lines'", got)
 	}
 }
+
+// TestInputModelNonASCII verifies that multibyte Unicode characters (accented
+// letters, arrows, CJK characters, emoji) are not corrupted when typed, edited
+// via Backspace, and retrieved via GetValue.
+func TestInputModelNonASCII(t *testing.T) {
+	// Simulate typing "héllo→世界" character by character.
+	input := []rune("héllo→世界")
+	m := NewInputModel()
+	for _, r := range input {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(InputModel)
+	}
+
+	got := m.GetValue()
+	want := "héllo→世界"
+	if got != want {
+		t.Errorf("GetValue after typing non-ASCII: got %q, want %q", got, want)
+	}
+	if m.cursor != len(input) {
+		t.Errorf("cursor should be at rune position %d, got %d", len(input), m.cursor)
+	}
+
+	// Backspace should remove the last rune ('界') cleanly.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = updated.(InputModel)
+	got = m.GetValue()
+	if got != "héllo→世" {
+		t.Errorf("GetValue after Backspace: got %q, want %q", "héllo→世", got)
+	}
+	if m.cursor != len(input)-1 {
+		t.Errorf("cursor after Backspace should be %d, got %d", len(input)-1, m.cursor)
+	}
+
+	// Insert 'Z' in the middle (after 'é', at rune index 2).
+	m.cursor = 2
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Z'}})
+	m = updated.(InputModel)
+	got = m.GetValue()
+	if got != "héZllo→世" {
+		t.Errorf("GetValue after mid-insert: got %q, want %q", "héZllo→世", got)
+	}
+
+	// RenderLine must not panic and must contain non-ASCII text.
+	line := m.RenderLine()
+	if line == "" {
+		t.Error("RenderLine returned empty string for non-ASCII input")
+	}
+}
