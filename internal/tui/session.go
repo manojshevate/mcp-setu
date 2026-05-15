@@ -176,6 +176,31 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetModels(msg.names)
 		return m, nil
 
+	case tea.MouseMsg:
+		// Mouse scroll wheel support for message history.
+		allVisual := m.renderOutputLines(0)
+		totalLines := len(allVisual)
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			// Scroll up (show older messages).
+			m.scrollOffset += 3
+			if m.scrollOffset > totalLines-m.middleHeight() {
+				m.scrollOffset = totalLines - m.middleHeight()
+			}
+			if m.scrollOffset < 0 {
+				m.scrollOffset = 0
+			}
+			return m, nil
+		case tea.MouseButtonWheelDown:
+			// Scroll down (show newer messages).
+			m.scrollOffset -= 3
+			if m.scrollOffset < 0 {
+				m.scrollOffset = 0
+			}
+			return m, nil
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		// Always allow Ctrl+C / Ctrl+D to exit.
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
