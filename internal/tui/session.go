@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -160,6 +161,12 @@ func (m SessionModel) fetchModels() tea.Cmd {
 }
 
 func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Debug: log all key events
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Key received: Type=%v, Alt=%v, String=%q\n",
+			msg.Type, msg.Alt, msg.String())
+	}
+
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
