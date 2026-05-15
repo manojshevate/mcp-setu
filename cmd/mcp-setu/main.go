@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"github.com/manojshevate/mcp-setu/internal/bridge"
@@ -44,9 +46,9 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "mcp-setu",
-		Short: "MCP bridge for Ollama",
-		Long:  "mcp-setu bridges Ollama to MCP servers for interactive multi-turn chat",
+		Use:     "mcp-setu",
+		Short:   "MCP bridge for Ollama",
+		Long:    "mcp-setu bridges Ollama to MCP servers for interactive multi-turn chat",
 		Example: "  mcp-setu\n  mcp-setu chat --model qwen2.5:7b",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
@@ -63,8 +65,8 @@ func main() {
 
 	// Version subcommand.
 	versionCmd := &cobra.Command{
-		Use:   "version",
-		Short: "Show version information",
+		Use:     "version",
+		Short:   "Show version information",
 		Example: "  mcp-setu version",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("mcp-setu version %s\n", version.Version)
@@ -80,8 +82,8 @@ func main() {
 
 	// Chat subcommand (also default).
 	chatCmd := &cobra.Command{
-		Use:   "chat",
-		Short: "Start interactive chat session",
+		Use:     "chat",
+		Short:   "Start interactive chat session",
 		Example: "  mcp-setu chat\n  mcp-setu chat --model qwen2.5:7b\n  mcp-setu chat --system \"You are a helpful assistant\"",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context())
@@ -91,8 +93,8 @@ func main() {
 
 	// Tools subcommand.
 	toolsCmd := &cobra.Command{
-		Use:   "tools",
-		Short: "List all tools from configured MCP servers",
+		Use:     "tools",
+		Short:   "List all tools from configured MCP servers",
 		Example: "  mcp-setu tools\n  mcp-setu tools --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTools(cmd.Context())
@@ -102,8 +104,8 @@ func main() {
 
 	// Models subcommand.
 	modelsCmd := &cobra.Command{
-		Use:   "models",
-		Short: "List Ollama models and their tool support status",
+		Use:     "models",
+		Short:   "List Ollama models and their tool support status",
 		Example: "  mcp-setu models",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModels(cmd.Context())
@@ -113,8 +115,8 @@ func main() {
 
 	// Validate subcommand.
 	validateCmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Validate config file and test MCP server connectivity",
+		Use:     "validate",
+		Short:   "Validate config file and test MCP server connectivity",
 		Example: "  mcp-setu validate\n  mcp-setu validate --config my-config.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runValidate(cmd.Context())
@@ -124,8 +126,8 @@ func main() {
 
 	// Init subcommand.
 	initCmd := &cobra.Command{
-		Use:   "init",
-		Short: "Create a starter mcp.json config file",
+		Use:     "init",
+		Short:   "Create a starter mcp.json config file",
 		Example: "  mcp-setu init",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit()
@@ -193,13 +195,29 @@ func runChat(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	// Build signals list based on OS — syscall.SIGTERM is not available on Windows.
+	sigs := []os.Signal{os.Interrupt}
+	if runtime.GOOS != "windows" {
+		sigs = append(sigs, syscall.SIGTERM)
+	}
+	signal.Notify(sigCh, sigs...)
+	defer signal.Stop(sigCh)
 
 	// Signal handler goroutine.
 	go func() {
-		<-sigCh
-		cancel()
+		select {
+		case <-sigCh:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
+
+	// Detect TTY: fall back to non-interactive mode when stdout is not a terminal
+	// (e.g., piped output, CI, scripts).
+	if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		return tui.RunNonInteractive(ctx, br, systemPrompt, verbose)
+	}
 
 	// Run the TUI chat.
 	return tui.RunChat(ctx, br, mcpClient, ollamaClient, printer, model, systemPrompt, verbose)
