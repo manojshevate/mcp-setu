@@ -197,17 +197,32 @@ func TestSessionViewScrollEnd(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		m.appendOutput(fmt.Sprintf("line %d", i))
 	}
-	// Scroll up.
+	// Scroll up with PgUp.
 	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
 	m = mu.(*SessionModel)
 	if m.scrollOffset == 0 {
 		t.Skip("scrollOffset did not increase, skipping End test")
 	}
-	// End should reset scroll to 0.
-	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	// PgDown should bring scroll back toward 0.
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
 	m = mu.(*SessionModel)
-	if m.scrollOffset != 0 {
-		t.Errorf("expected scrollOffset=0 after End, got %d", m.scrollOffset)
+	// End now moves the input cursor to the end of the input (not scroll).
+	// Type some text, then press End and verify cursor is at the end.
+	for _, r := range "hello" {
+		mu2, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu2.(*SessionModel)
+	}
+	// Move cursor to start with Home.
+	mu3, _ := m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = mu3.(*SessionModel)
+	if m.input.cursor != 0 {
+		t.Errorf("expected cursor=0 after Home, got %d", m.input.cursor)
+	}
+	// Press End to jump cursor to end.
+	mu4, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m = mu4.(*SessionModel)
+	if m.input.cursor != 5 {
+		t.Errorf("expected cursor=5 after End, got %d", m.input.cursor)
 	}
 }
 
@@ -218,11 +233,20 @@ func TestSessionViewScrollHome(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		m.appendOutput(fmt.Sprintf("line %d", i))
 	}
-	// Home should set scrollOffset to a large value (top of history).
+	// Type some text into the input then press Home to move cursor to start.
+	for _, r := range "hello" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	// Cursor should be at end after typing.
+	if m.input.cursor != 5 {
+		t.Errorf("expected cursor=5 after typing, got %d", m.input.cursor)
+	}
+	// Home should move cursor to 0.
 	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyHome})
 	m = mu.(*SessionModel)
-	if m.scrollOffset <= 0 {
-		t.Errorf("expected scrollOffset > 0 after Home, got %d", m.scrollOffset)
+	if m.input.cursor != 0 {
+		t.Errorf("expected cursor=0 after Home, got %d", m.input.cursor)
 	}
 }
 

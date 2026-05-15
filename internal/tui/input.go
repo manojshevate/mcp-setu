@@ -149,6 +149,30 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateAC()
 			}
 
+		case tea.KeyLeft:
+			if m.mode != modeModelSelect {
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			}
+
+		case tea.KeyRight:
+			if m.mode != modeModelSelect {
+				if m.cursor < len(m.valueRunes) {
+					m.cursor++
+				}
+			}
+
+		case tea.KeyHome:
+			if m.mode != modeModelSelect {
+				m.cursor = 0
+			}
+
+		case tea.KeyEnd:
+			if m.mode != modeModelSelect {
+				m.cursor = len(m.valueRunes)
+			}
+
 		case tea.KeyTab:
 			if m.mode == modeAutocomplete && len(m.autocomplete) > 0 {
 				m.valueRunes = []rune(m.autocomplete[m.selectedAC])
@@ -309,7 +333,7 @@ func (m InputModel) RenderLine() string {
 
 // maxInputBoxLines is the maximum number of content lines shown inside the
 // input box before scrolling is implied (the box stops growing beyond this).
-const maxInputBoxLines = 6
+const maxInputBoxLines = 10
 
 // RenderAllLines renders all visible input lines for use in a taller input box.
 // It returns up to maxInputBoxLines content rows. The cursor is rendered within

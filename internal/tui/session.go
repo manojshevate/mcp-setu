@@ -186,9 +186,10 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Page Up / Page Down / Home / End: scroll the message area.
+		// Page Up / Page Down: scroll the message area.
 		if msg.Type == tea.KeyPgUp {
 			m.scrollOffset += m.scrollPageSize()
+			// Upper clamp is applied in View() when rendering.
 			return m, nil
 		}
 		if msg.Type == tea.KeyPgDown {
@@ -198,16 +199,7 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if msg.Type == tea.KeyHome {
-			// Scroll to the very top of the history.
-			m.scrollOffset = len(m.renderOutputLines(0))
-			return m, nil
-		}
-		if msg.Type == tea.KeyEnd {
-			// Jump back to the latest (bottom).
-			m.scrollOffset = 0
-			return m, nil
-		}
+		// Home / End are forwarded to the input model for cursor navigation.
 
 		// Escape: exit picker or dismiss autocomplete.
 		if msg.Type == tea.KeyEsc {
@@ -557,17 +549,42 @@ func (m SessionModel) renderHeader() []string {
 		styleHeaderMuted.Render("↑/↓ history · PgUp/PgDn scroll"),
 	}
 
+	// Determine the width of the right panel. We allocate roughly 1/3 of the
+	// terminal for the welcome info, with a minimum of 32 columns.
+	rightPanelWidth := m.width / 3
+	if rightPanelWidth < 32 {
+		rightPanelWidth = 32
+	}
+	if rightPanelWidth > 48 {
+		rightPanelWidth = 48
+	}
+	separatorStr := "  │  "
+	separatorWidth := lipgloss.Width(separatorStr)
+
 	// Build 8 lines. The banner spans all 8 rows on the left.
-	// The welcome panel is placed on the right of rows 0-4.
+	// The welcome panel is placed on the right of rows 0-4, right-aligned within
+	// the right panel area.
 	var lines []string
 	for i := 0; i < headerHeight; i++ {
 		left := ""
 		if i < len(art) {
 			left = art[i]
 		}
-		right := ""
+
+		var right string
 		if i < len(welcome) {
-			right = "  │  " + welcome[i]
+			welcomeText := welcome[i]
+			textWidth := lipgloss.Width(welcomeText)
+			// Right-align the welcome text within rightPanelWidth (excluding separator).
+			contentWidth := rightPanelWidth - separatorWidth
+			if contentWidth < 1 {
+				contentWidth = 1
+			}
+			pad := contentWidth - textWidth
+			if pad < 0 {
+				pad = 0
+			}
+			right = separatorStr + strings.Repeat(" ", pad) + welcomeText
 		}
 
 		leftWidth := lipgloss.Width(left)
