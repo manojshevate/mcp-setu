@@ -82,31 +82,33 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 }
 
 // SetModel changes the model and validates tool support.
-// The existence check is performed outside the lock (it is a network call
-// and must not block other readers). After the check succeeds we re-acquire
-// the write lock and do a final compare-and-swap so that the read, compare,
-// and write of b.model are all performed under the same lock acquisition,
-// making the update genuinely atomic with respect to concurrent SetModel calls.
+// The existence check is performed outside any lock because it is a network
+// call that must not block concurrent readers. After the check succeeds the
+// write lock is held for the entire read-compare-write sequence so the
+// transition is genuinely atomic: no other goroutine can observe a
+// half-updated model or interleave a concurrent SetModel between the read
+// and the write.
 func (b *Bridge) SetModel(ctx context.Context, model string) error {
-	// Fast-path: read current model under lock; bail early if already set.
+	// Cheap early-exit: read current model without a lock using a snapshot
+	// taken under the read lock. If the model is already set we skip the
+	// expensive network round-trip entirely.
 	b.mu.RLock()
-	currentModel := b.model
+	same := b.model == model
 	b.mu.RUnlock()
-	if model == currentModel {
+	if same {
 		return nil
 	}
 
-	// Network call outside the lock — this is intentional and safe; at worst
-	// two concurrent callers both validate and then race to the write below,
-	// which is resolved atomically there.
+	// Network call outside any lock — intentional; at worst two concurrent
+	// callers both validate successfully and then race to the write lock
+	// below, which is resolved atomically.
 	if err := b.ollamaClient.EnsureModelExists(ctx, model); err != nil {
 		return err
 	}
 
-	// Acquire write lock and re-check before writing.  This closes the
-	// TOCTOU window: if another goroutine already switched to the same model
-	// we skip the redundant write; the read, compare, and write happen as a
-	// single critical section.
+	// Hold the write lock for the ENTIRE read-compare-write so there is no
+	// window between checking and assigning. This is the single authoritative
+	// critical section for b.model updates.
 	b.mu.Lock()
 	if b.model != model {
 		b.model = model
