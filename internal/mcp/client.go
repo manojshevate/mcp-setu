@@ -149,9 +149,16 @@ func (c *Client) initialize(ctx context.Context) error {
 		Method:  "notifications/initialized",
 		Params:  map[string]any{},
 	}
-	notifData, _ := json.Marshal(notif)
-	_, _ = c.stdin.WriteString(string(notifData) + "\n")
-	_ = c.stdin.Flush()
+	notifData, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
+	if _, err := c.stdin.WriteString(string(notifData) + "\n"); err != nil {
+		return fmt.Errorf("failed to write initialized notification: %w", err)
+	}
+	if err := c.stdin.Flush(); err != nil {
+		return fmt.Errorf("failed to flush initialized notification: %w", err)
+	}
 
 	// List tools.
 	toolResp, err := c.sendRequest(ctx, "tools/list", map[string]any{})
@@ -168,9 +175,14 @@ func (c *Client) initialize(ctx context.Context) error {
 			for _, t := range toolsSlice {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
-					toolJSON, _ := json.Marshal(toolMap)
+					toolJSON, err := json.Marshal(toolMap)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to marshal tool definition: %v\n", err)
+						continue
+					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
 						// Log but continue to allow partial tool loading.
+						fmt.Fprintf(os.Stderr, "warning: failed to unmarshal tool definition: %v\n", err)
 						continue
 					}
 					c.tools[tool.Name] = &tool
@@ -241,15 +253,23 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (*J
 
 	// Marshal params to map.
 	if params != nil {
-		paramJSON, _ := json.Marshal(params)
-		_ = json.Unmarshal(paramJSON, &req.Params)
+		paramJSON, err := json.Marshal(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request params: %w", err)
+		}
+		if err := json.Unmarshal(paramJSON, &req.Params); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal request params: %w", err)
+		}
 		// Treat empty params map as nil for clean omitempty marshaling
 		if len(req.Params) == 0 {
 			req.Params = nil
 		}
 	}
 
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 	if _, err := c.stdin.WriteString(string(reqData) + "\n"); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
