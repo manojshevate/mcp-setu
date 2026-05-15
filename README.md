@@ -15,14 +15,22 @@ A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontext
 
 ## Install
 
+**macOS / Linux:**
 ```bash
-go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest
-# or
-brew tap manojshevate/mcp-setu
-brew install mcp-setu
-# or
-git clone https://github.com/manojshevate/mcp-setu && cd mcp-setu && make install
+curl -fsSL https://raw.githubusercontent.com/manojshevate/mcp-setu/main/scripts/install.sh | sh
 ```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/manojshevate/mcp-setu/main/scripts/install.ps1 | iex
+```
+
+**Other methods:**
+- `go install github.com/manojshevate/mcp-setu/cmd/mcp-setu@latest`
+- `brew tap manojshevate/mcp-setu && brew install mcp-setu` (macOS)
+- Build from source: `git clone https://github.com/manojshevate/mcp-setu && cd mcp-setu && make install`
+
+👉 [See all installation methods →](docs/installation.md)
 
 ## Quick start
 
