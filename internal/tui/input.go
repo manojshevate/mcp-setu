@@ -307,6 +307,126 @@ func (m InputModel) RenderLine() string {
 	return string(firstLineRunes) + indicator
 }
 
+// maxInputBoxLines is the maximum number of content lines shown inside the
+// input box before scrolling is implied (the box stops growing beyond this).
+const maxInputBoxLines = 6
+
+// RenderAllLines renders all visible input lines for use in a taller input box.
+// It returns up to maxInputBoxLines content rows. The cursor is rendered within
+// its correct line. Excess lines beyond maxVisible are hidden (scroll implied).
+func (m InputModel) RenderAllLines(maxVisible int) []string {
+	if maxVisible < 1 {
+		maxVisible = 1
+	}
+	if maxVisible > maxInputBoxLines {
+		maxVisible = maxInputBoxLines
+	}
+
+	if m.mode == modeModelSelect {
+		return []string{lipgloss.NewStyle().Faint(true).Render("↑/↓ select model · enter confirm · esc cancel")}
+	}
+
+	cursorBlock := lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
+
+	if len(m.valueRunes) == 0 {
+		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · alt+enter for newline")
+		return []string{cursorBlock + hint}
+	}
+
+	// Clamp cursor.
+	cur := m.cursor
+	if cur < 0 {
+		cur = 0
+	}
+	if cur > len(m.valueRunes) {
+		cur = len(m.valueRunes)
+	}
+
+	// Split valueRunes into logical lines at '\n'.
+	var logicalLines [][]rune
+	start := 0
+	for i, r := range m.valueRunes {
+		if r == '\n' {
+			logicalLines = append(logicalLines, m.valueRunes[start:i])
+			start = i + 1
+		}
+	}
+	logicalLines = append(logicalLines, m.valueRunes[start:])
+
+	// Find which logical line the cursor is on.
+	cursorLine := 0
+	posInLine := cur
+	for i, lr := range logicalLines {
+		if posInLine <= len(lr) {
+			cursorLine = i
+			break
+		}
+		posInLine -= len(lr) + 1 // +1 for the '\n'
+	}
+
+	// Determine which window of lines to show so the cursor is always visible.
+	totalLines := len(logicalLines)
+	windowStart := 0
+	if totalLines > maxVisible {
+		// Scroll the window to keep cursorLine in view.
+		windowStart = cursorLine - (maxVisible - 1)
+		if windowStart < 0 {
+			windowStart = 0
+		}
+		if windowStart+maxVisible > totalLines {
+			windowStart = totalLines - maxVisible
+		}
+	}
+	windowEnd := windowStart + maxVisible
+	if windowEnd > totalLines {
+		windowEnd = totalLines
+	}
+
+	var rendered []string
+	// Track rune offset of the start of windowStart line for cursor arithmetic.
+	runeOffset := 0
+	for i := 0; i < windowStart; i++ {
+		runeOffset += len(logicalLines[i]) + 1 // +1 for '\n'
+	}
+
+	for i := windowStart; i < windowEnd; i++ {
+		lr := logicalLines[i]
+		lineStart := runeOffset
+		lineEnd := runeOffset + len(lr)
+
+		var row string
+		if cur >= lineStart && cur <= lineEnd {
+			// Cursor is on this line.
+			posOnLine := cur - lineStart
+			before := string(lr[:posOnLine])
+			after := string(lr[posOnLine:])
+			row = before + cursorBlock + after
+		} else {
+			row = string(lr)
+		}
+		rendered = append(rendered, row)
+		runeOffset += len(lr) + 1 // +1 for '\n'
+	}
+
+	// If there are hidden lines below, add a scroll indicator on the last row.
+	if windowEnd < totalLines {
+		hiddenBelow := totalLines - windowEnd
+		indicator := lipgloss.NewStyle().Faint(true).Render(
+			fmt.Sprintf(" (%d more line%s below)", hiddenBelow, func() string {
+				if hiddenBelow == 1 {
+					return ""
+				}
+				return "s"
+			}()),
+		)
+		if len(rendered) > 0 {
+			rendered[len(rendered)-1] = rendered[len(rendered)-1] + indicator
+		}
+	}
+
+	return rendered
+}
+
 // pluralLines returns "N line" or "N lines".
 func pluralLines(n int) string {
 	if n == 1 {

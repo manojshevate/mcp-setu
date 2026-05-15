@@ -303,8 +303,22 @@ func (m *SessionModel) View() string {
 	// ── FOOTER (input box + accessories) ──────────────────────────────
 	separator := styleSeparator.Render(strings.Repeat("─", m.width))
 
-	rawInputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
-	inputBox := styleInputBox.Width(m.width - 2).Render(rawInputLine)
+	// Dynamic input box: grow from 1 content line up to maxInputBoxLines.
+	lineCount := m.input.LineCount()
+	visibleLines := lineCount
+	if visibleLines < 1 {
+		visibleLines = 1
+	}
+	if visibleLines > maxInputBoxLines {
+		visibleLines = maxInputBoxLines
+	}
+	contentLines := m.input.RenderAllLines(visibleLines)
+	// Prepend the prompt glyph to the first line.
+	if len(contentLines) > 0 {
+		contentLines[0] = stylePrompt.Render("❯ ") + contentLines[0]
+	}
+	inputContent := strings.Join(contentLines, "\n")
+	inputBox := styleInputBox.Width(m.width - 2).Render(inputContent)
 
 	modelFooter := ""
 	if m.model != "" {
@@ -475,8 +489,19 @@ func (m SessionModel) middleHeight() int {
 	}
 	// Reserve headerHeight rows at top and chromeHeight rows at bottom.
 	// chromeHeight calculation mirrors View() to stay in sync.
-	separator := strings.Repeat("─", m.width) // just for line counting
-	inputBox := styleInputBox.Width(m.width - 2).Render(stylePrompt.Render("❯ ") + m.input.RenderLine())
+	lineCount := m.input.LineCount()
+	visibleLines := lineCount
+	if visibleLines < 1 {
+		visibleLines = 1
+	}
+	if visibleLines > maxInputBoxLines {
+		visibleLines = maxInputBoxLines
+	}
+	contentLines := m.input.RenderAllLines(visibleLines)
+	if len(contentLines) > 0 {
+		contentLines[0] = stylePrompt.Render("❯ ") + contentLines[0]
+	}
+	inputBox := styleInputBox.Width(m.width - 2).Render(strings.Join(contentLines, "\n"))
 	inputBoxLines := strings.Count(inputBox, "\n") + 1
 	acBlock := m.input.RenderAutocomplete()
 	acLines := 0
@@ -484,7 +509,6 @@ func (m SessionModel) middleHeight() int {
 		acLines = strings.Count(acBlock, "\n") + 1
 	}
 	chromeHeight := 1 + inputBoxLines + acLines // separator(1) + inputBox + ac
-	_ = separator
 	if m.status != "" {
 		chromeHeight++
 	}
@@ -550,8 +574,24 @@ func (m SessionModel) renderHeader() []string {
 		rightWidth := lipgloss.Width(right)
 		gap := m.width - leftWidth - rightWidth
 		if gap < 0 {
-			// Banner is wider than terminal: just render the banner line alone.
-			lines = append(lines, left)
+			if right != "" {
+				// Banner is wider than terminal but there is a right-panel entry:
+				// truncate the banner line so the info still appears.
+				maxLeft := m.width - rightWidth - 1
+				if maxLeft < 0 {
+					maxLeft = 0
+				}
+				truncatedLeft := truncateToWidth(left, maxLeft)
+				actualLeft := lipgloss.Width(truncatedLeft)
+				pad := m.width - actualLeft - rightWidth
+				if pad < 1 {
+					pad = 1
+				}
+				lines = append(lines, truncatedLeft+strings.Repeat(" ", pad)+right)
+			} else {
+				// No right panel: just render the banner line alone.
+				lines = append(lines, left)
+			}
 			continue
 		}
 		if gap < 1 {
@@ -815,6 +855,28 @@ func listModelInfos(ctx context.Context, client *ollama.Client) ([]ui.ModelInfo,
 		infos = append(infos, ui.ModelInfo{Name: mod.Name, Size: mod.Size})
 	}
 	return infos, nil
+}
+
+// truncateToWidth truncates a plain (or ANSI-styled) string to at most maxWidth
+// visible columns. It works rune-by-rune on the raw bytes, which is imperfect
+// for styled text but sufficient for the header banner use-case where we just
+// need to fit within the available terminal width.
+func truncateToWidth(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+	// Strip runes from the right until we fit.
+	runes := []rune(s)
+	for len(runes) > 0 {
+		if lipgloss.Width(string(runes)) <= maxWidth {
+			return string(runes)
+		}
+		runes = runes[:len(runes)-1]
+	}
+	return ""
 }
 
 // truncateModel shortens a model name to roughly one-third of the terminal
