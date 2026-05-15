@@ -181,12 +181,10 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyCtrlD {
 			return m, tea.Quit
 		}
-		// Ignore keystrokes while a request is in flight (except quit).
-		if m.processing {
-			return m, nil
-		}
 
 		// Page Up / Page Down: scroll the message area.
+		// These are always handled, even while processing, so the user can read
+		// history while waiting for a response.
 		if msg.Type == tea.KeyPgUp {
 			m.scrollOffset += m.scrollPageSize()
 			// Upper clamp is applied in View() when rendering.
@@ -197,6 +195,11 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.scrollOffset < 0 {
 				m.scrollOffset = 0
 			}
+			return m, nil
+		}
+
+		// Ignore all other keystrokes while a request is in flight (except quit).
+		if m.processing {
 			return m, nil
 		}
 		// Home / End are forwarded to the input model for cursor navigation.
@@ -398,12 +401,12 @@ func (m *SessionModel) View() string {
 	}
 
 	// Scroll indicator: show "↑ N lines above" when scrolled up.
-	scrollIndicator := ""
+	// Place it on the first (top) line of the middle area so it acts as a
+	// header banner, leaving the bottom content (nearest the input) intact.
 	if m.scrollOffset > 0 {
-		scrollIndicator = styleMuted.Render(fmt.Sprintf("  ↑ %d lines above  (Page Up/Down or Fn+↑/↓ on Mac)", m.scrollOffset))
-		// Replace the last visual line with the indicator so it overlays the content.
+		scrollIndicator := styleMuted.Render(fmt.Sprintf("  ↑ %d lines above  (PgUp/PgDn to scroll)", m.scrollOffset))
 		if len(visual) > 0 {
-			visual[len(visual)-1] = scrollIndicator
+			visual[0] = scrollIndicator
 		}
 	}
 
