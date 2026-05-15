@@ -62,9 +62,9 @@ func TestInputModelView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := InputModel{
-				value:  tt.value,
-				width:  tt.width,
-				cursor: tt.cursor,
+				valueRunes: []rune(tt.value),
+				width:      tt.width,
+				cursor:     tt.cursor,
 			}
 
 			// This should not panic
@@ -81,20 +81,20 @@ func TestInputModelDirectUpdates(t *testing.T) {
 	m.SetWidth(80)
 
 	// Test GetValue
-	m.value = "test"
+	m.valueRunes = []rune("test")
 	if m.GetValue() != "test" {
 		t.Errorf("expected 'test', got '%s'", m.GetValue())
 	}
 
 	// Test Clear
 	m.Clear()
-	if m.value != "" {
-		t.Errorf("expected empty value after clear, got '%s'", m.value)
+	if len(m.valueRunes) != 0 {
+		t.Errorf("expected empty value after clear, got '%s'", string(m.valueRunes))
 	}
 
 	// Test cursor position
 	m.cursor = 5
-	m.value = "hello world"
+	m.valueRunes = []rune("hello world")
 	if m.cursor != 5 {
 		t.Errorf("expected cursor at 5, got %d", m.cursor)
 	}
@@ -153,14 +153,14 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 	m := NewInputModel()
 
 	// No autocomplete without /
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.updateAC()
 	if m.mode == modeAutocomplete {
 		t.Error("expected no autocomplete for non-slash input")
 	}
 
 	// Autocomplete with /
-	m.value = "/t"
+	m.valueRunes = []rune("/t")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Error("expected autocomplete mode for /t")
@@ -170,7 +170,7 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 	}
 
 	// No autocomplete for non-matching prefix
-	m.value = "/xyz"
+	m.valueRunes = []rune("/xyz")
 	m.updateAC()
 	if m.mode == modeAutocomplete && len(m.autocomplete) > 0 {
 		t.Error("expected no autocomplete for /xyz")
@@ -186,14 +186,14 @@ func TestInputModelModeEnum(t *testing.T) {
 	}
 
 	// Typing /m triggers autocomplete mode.
-	m.value = "/m"
+	m.valueRunes = []rune("/m")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after /m, got %d", m.mode)
 	}
 
 	// Clearing the value returns to normal mode.
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.updateAC()
 	if m.mode != modeNormal {
 		t.Errorf("expected modeNormal for non-slash input, got %d", m.mode)
@@ -277,7 +277,7 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	m.SetModels([]string{"llama3", "llama2", "mistral"})
 
 	// Typing "/model " should trigger model-name autocomplete.
-	m.value = "/model "
+	m.valueRunes = []rune("/model ")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after '/model ', got %d", m.mode)
@@ -287,7 +287,7 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	}
 
 	// Typing "/model ll" should narrow to llama3, llama2.
-	m.value = "/model ll"
+	m.valueRunes = []rune("/model ll")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after '/model ll', got %d", m.mode)
@@ -297,14 +297,14 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	}
 
 	// Typing "/model mis" should narrow to mistral only.
-	m.value = "/model mis"
+	m.valueRunes = []rune("/model mis")
 	m.updateAC()
 	if len(m.autocomplete) != 1 {
 		t.Errorf("expected 1 autocomplete match for 'mis', got %d", len(m.autocomplete))
 	}
 
 	// Typing "/model zzz" (no match) should exit autocomplete.
-	m.value = "/model zzz"
+	m.valueRunes = []rune("/model zzz")
 	m.updateAC()
 	if m.mode == modeAutocomplete {
 		t.Error("expected no autocomplete for '/model zzz' with no matching models")

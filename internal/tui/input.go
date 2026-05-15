@@ -23,7 +23,11 @@ const (
 type SendMsg struct{}
 
 type InputModel struct {
-	value        string
+	// valueRunes holds the input text as a rune slice so that all cursor
+	// arithmetic operates on Unicode code-points, not bytes. This prevents
+	// corruption of any multibyte character (é, →, 世界, emoji, …).
+	// External callers always receive a plain string via GetValue().
+	valueRunes   []rune
 	cursor       int
 	width        int
 	history      []string
@@ -40,6 +44,7 @@ type InputModel struct {
 
 func NewInputModel() InputModel {
 	return InputModel{
+		valueRunes: []rune{},
 		history:    make([]string, 0),
 		historyIdx: -1,
 	}
@@ -67,8 +72,8 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.historyIdx < len(m.history)-1 {
 					m.historyIdx++
 					if m.historyIdx < len(m.history) {
-						m.value = m.history[len(m.history)-1-m.historyIdx]
-						m.cursor = len(m.value)
+						m.valueRunes = []rune(m.history[len(m.history)-1-m.historyIdx])
+						m.cursor = len(m.valueRunes)
 					}
 				}
 			}
@@ -86,11 +91,11 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				if m.historyIdx > 0 {
 					m.historyIdx--
-					m.value = m.history[len(m.history)-1-m.historyIdx]
-					m.cursor = len(m.value)
+					m.valueRunes = []rune(m.history[len(m.history)-1-m.historyIdx])
+					m.cursor = len(m.valueRunes)
 				} else if m.historyIdx == 0 {
 					m.historyIdx = -1
-					m.value = ""
+					m.valueRunes = []rune{}
 					m.cursor = 0
 				}
 			}
@@ -107,10 +112,14 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, func() tea.Msg { return SendMsg{} }
 			} else {
 				// Plain Enter → insert newline.
-				if m.cursor < 0 || m.cursor > len(m.value) {
-					m.cursor = len(m.value)
+				if m.cursor < 0 || m.cursor > len(m.valueRunes) {
+					m.cursor = len(m.valueRunes)
 				}
-				m.value = m.value[:m.cursor] + "\n" + m.value[m.cursor:]
+				newRunes := make([]rune, 0, len(m.valueRunes)+1)
+				newRunes = append(newRunes, m.valueRunes[:m.cursor]...)
+				newRunes = append(newRunes, '\n')
+				newRunes = append(newRunes, m.valueRunes[m.cursor:]...)
+				m.valueRunes = newRunes
 				m.cursor++
 				// Newlines cancel any active autocomplete.
 				m.mode = modeNormal
@@ -121,7 +130,10 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == modeModelSelect {
 				m.ExitModelSelect()
 			} else if m.cursor > 0 {
-				m.value = m.value[:m.cursor-1] + m.value[m.cursor:]
+				newRunes := make([]rune, 0, len(m.valueRunes)-1)
+				newRunes = append(newRunes, m.valueRunes[:m.cursor-1]...)
+				newRunes = append(newRunes, m.valueRunes[m.cursor:]...)
+				m.valueRunes = newRunes
 				m.cursor--
 				m.updateAC()
 			}
@@ -129,15 +141,18 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyDelete:
 			if m.mode == modeModelSelect {
 				m.ExitModelSelect()
-			} else if m.cursor < len(m.value) {
-				m.value = m.value[:m.cursor] + m.value[m.cursor+1:]
+			} else if m.cursor < len(m.valueRunes) {
+				newRunes := make([]rune, 0, len(m.valueRunes)-1)
+				newRunes = append(newRunes, m.valueRunes[:m.cursor]...)
+				newRunes = append(newRunes, m.valueRunes[m.cursor+1:]...)
+				m.valueRunes = newRunes
 				m.updateAC()
 			}
 
 		case tea.KeyTab:
 			if m.mode == modeAutocomplete && len(m.autocomplete) > 0 {
-				m.value = m.autocomplete[m.selectedAC]
-				m.cursor = len(m.value)
+				m.valueRunes = []rune(m.autocomplete[m.selectedAC])
+				m.cursor = len(m.valueRunes)
 				m.mode = modeNormal
 			}
 
@@ -145,10 +160,14 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == modeModelSelect {
 				// Ignore space in picker mode.
 			} else {
-				if m.cursor < 0 || m.cursor > len(m.value) {
-					m.cursor = len(m.value)
+				if m.cursor < 0 || m.cursor > len(m.valueRunes) {
+					m.cursor = len(m.valueRunes)
 				}
-				m.value = m.value[:m.cursor] + " " + m.value[m.cursor:]
+				newRunes := make([]rune, 0, len(m.valueRunes)+1)
+				newRunes = append(newRunes, m.valueRunes[:m.cursor]...)
+				newRunes = append(newRunes, ' ')
+				newRunes = append(newRunes, m.valueRunes[m.cursor:]...)
+				m.valueRunes = newRunes
 				m.cursor++
 				m.updateAC()
 			}
@@ -158,19 +177,27 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Any typing exits the picker and starts fresh.
 				m.ExitModelSelect()
 				for _, r := range msg.Runes {
-					if m.cursor < 0 || m.cursor > len(m.value) {
-						m.cursor = len(m.value)
+					if m.cursor < 0 || m.cursor > len(m.valueRunes) {
+						m.cursor = len(m.valueRunes)
 					}
-					m.value = m.value[:m.cursor] + string(r) + m.value[m.cursor:]
+					newRunes := make([]rune, 0, len(m.valueRunes)+1)
+					newRunes = append(newRunes, m.valueRunes[:m.cursor]...)
+					newRunes = append(newRunes, r)
+					newRunes = append(newRunes, m.valueRunes[m.cursor:]...)
+					m.valueRunes = newRunes
 					m.cursor++
 				}
 				m.updateAC()
 			} else {
 				for _, r := range msg.Runes {
-					if m.cursor < 0 || m.cursor > len(m.value) {
-						m.cursor = len(m.value)
+					if m.cursor < 0 || m.cursor > len(m.valueRunes) {
+						m.cursor = len(m.valueRunes)
 					}
-					m.value = m.value[:m.cursor] + string(r) + m.value[m.cursor:]
+					newRunes := make([]rune, 0, len(m.valueRunes)+1)
+					newRunes = append(newRunes, m.valueRunes[:m.cursor]...)
+					newRunes = append(newRunes, r)
+					newRunes = append(newRunes, m.valueRunes[m.cursor:]...)
+					m.valueRunes = newRunes
 					m.cursor++
 				}
 				m.updateAC()
@@ -181,9 +208,10 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *InputModel) updateAC() {
-	if strings.HasPrefix(m.value, "/model ") {
+	val := string(m.valueRunes)
+	if strings.HasPrefix(val, "/model ") {
 		// Subcommand autocomplete: match model names after "/model ".
-		prefix := strings.TrimPrefix(m.value, "/model ")
+		prefix := strings.TrimPrefix(val, "/model ")
 		m.autocomplete = getMatchingModels(prefix, m.models)
 		if len(m.autocomplete) > 0 {
 			m.mode = modeAutocomplete
@@ -193,8 +221,8 @@ func (m *InputModel) updateAC() {
 		m.selectedAC = 0
 		return
 	}
-	if strings.HasPrefix(m.value, "/") {
-		m.autocomplete = getMatchingCommands(m.value)
+	if strings.HasPrefix(val, "/") {
+		m.autocomplete = getMatchingCommands(val)
 		if len(m.autocomplete) > 0 {
 			m.mode = modeAutocomplete
 		} else {
@@ -209,10 +237,16 @@ func (m *InputModel) updateAC() {
 
 // LineCount returns the number of lines in the current value (1 for single-line).
 func (m InputModel) LineCount() int {
-	if m.value == "" {
+	if len(m.valueRunes) == 0 {
 		return 1
 	}
-	return strings.Count(m.value, "\n") + 1
+	count := 1
+	for _, r := range m.valueRunes {
+		if r == '\n' {
+			count++
+		}
+	}
+	return count
 }
 
 // RenderLine returns just the input line (prompt cursor, placeholder, etc.)
@@ -227,7 +261,7 @@ func (m InputModel) RenderLine() string {
 
 	cursorBlock := lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
 
-	if m.value == "" {
+	if len(m.valueRunes) == 0 {
 		// Empty input: show cursor at start with placeholder.
 		hint := lipgloss.NewStyle().Faint(true).Render("type message… alt+enter to send")
 		return cursorBlock + hint
@@ -238,34 +272,39 @@ func (m InputModel) RenderLine() string {
 	if cur < 0 {
 		cur = 0
 	}
-	if cur > len(m.value) {
-		cur = len(m.value)
+	if cur > len(m.valueRunes) {
+		cur = len(m.valueRunes)
 	}
 
 	lineCount := m.LineCount()
 	if lineCount <= 1 {
 		// Single-line: show the full value with cursor.
-		before := m.value[:cur]
-		after := m.value[cur:]
+		before := string(m.valueRunes[:cur])
+		after := string(m.valueRunes[cur:])
 		return before + cursorBlock + after
 	}
 
-	// Multiline: show only the first line and a "(N lines · ctrl+enter to send)" hint.
-	firstLine := m.value
-	if nl := strings.Index(m.value, "\n"); nl >= 0 {
-		firstLine = m.value[:nl]
+	// Multiline: show only the first line and a "(N lines · alt+enter to send)" hint.
+	// Find the first newline in rune space.
+	firstLineEnd := len(m.valueRunes)
+	for i, r := range m.valueRunes {
+		if r == '\n' {
+			firstLineEnd = i
+			break
+		}
 	}
+	firstLineRunes := m.valueRunes[:firstLineEnd]
 	indicator := lipgloss.NewStyle().Faint(true).Render(
 		fmt.Sprintf(" (%s · alt+enter to send)", pluralLines(lineCount)),
 	)
 
 	// Render cursor within the first line if it falls there, otherwise at the end.
-	if cur <= len(firstLine) {
-		before := firstLine[:cur]
-		after := firstLine[cur:]
+	if cur <= firstLineEnd {
+		before := string(firstLineRunes[:cur])
+		after := string(firstLineRunes[cur:])
 		return before + cursorBlock + after + indicator
 	}
-	return firstLine + indicator
+	return string(firstLineRunes) + indicator
 }
 
 // pluralLines returns "N line" or "N lines".
@@ -358,7 +397,7 @@ func (m *InputModel) EnterModelSelect() {
 // ExitModelSelect cancels the picker and returns to normal mode.
 func (m *InputModel) ExitModelSelect() {
 	m.mode = modeNormal
-	m.value = ""
+	m.valueRunes = []rune{}
 	m.cursor = 0
 }
 
@@ -387,11 +426,11 @@ func (m *InputModel) SetCurrentModel(name string) {
 // GetValue returns the current input value with leading/trailing whitespace trimmed.
 // Internal newlines (multiline content) are preserved.
 func (m InputModel) GetValue() string {
-	return strings.Trim(m.value, " \t\r\n")
+	return strings.Trim(string(m.valueRunes), " \t\r\n")
 }
 
 func (m *InputModel) Clear() {
-	m.value = ""
+	m.valueRunes = []rune{}
 	m.cursor = 0
 	m.historyIdx = -1
 	m.mode = modeNormal
