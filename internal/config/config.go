@@ -122,7 +122,7 @@ func ExampleConfig() string {
 	example := Config{
 		Ollama: OllamaConfig{
 			BaseURL:       "http://localhost:11434",
-			Model:         "gemma2:latest",
+			Model:         "llama3.2:3b",
 			SystemPrompt:  "You are an AI agent that helps users by making calls to the configured MCP tools. Use the available tools to fulfill user requests accurately and efficiently.",
 			Temperature:   &defaultTemp,
 			ContextLength: &defaultCtx,

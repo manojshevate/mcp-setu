@@ -30,7 +30,7 @@ The `internal/tui/` package provides an interactive chat session with modern UI 
 
 - **Bordered Input Box**: Messages are typed in a styled box with rounded corners (`╭`, `╮`, `╰`, `╯`) that spans the terminal width with 1-char padding on each side
 - **Dynamic Height**: Input box automatically wraps long text across multiple lines while maintaining the fixed input position at the bottom
-- **Model Indicator Badge**: Currently active model displayed in the bottom-right corner (e.g., `◆ gemma2:latest`), with automatic truncation for long model names
+- **Model Indicator Badge**: Currently active model displayed in the bottom-right corner (e.g., `◆ llama3.2:3b`), with automatic truncation for long model names
 - **Cursor at Start**: Cursor appears at the beginning of input (like Claude Code) and moves naturally as user types
 - **Upward Autocomplete**: Slash-command suggestions rendered *above* the input field for better visibility
 

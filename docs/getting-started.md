@@ -57,10 +57,10 @@ ollama serve
 ### 3. Pull a Model
 
 ```bash
-ollama pull gemma2:latest
+ollama pull llama3.2:3b
 ```
 
-`gemma2:latest` is recommended for tool calling. See [Supported Models](./configuration.md#supported-models) for alternatives.
+`llama3.2:3b` is recommended for tool calling. See [Supported Models](./configuration.md#supported-models) for alternatives.
 
 ### 4. Create a config file
 
@@ -109,7 +109,7 @@ User sees the answer
 The chat TUI has a clean, modern layout with an input box pinned at the bottom and scrolling content above. Here's what you'll see:
 
 - **Bordered Input Box**: Your messages are typed in a styled box with rounded corners
-- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., "◆ gemma2:latest")
+- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., "◆ llama3.2:3b")
 - **Cursor Position**: The cursor starts at the beginning of the input field (like Claude Code) and moves naturally as you type
 - **Autocomplete Dropdown**: When you type `/`, suggestions appear **above** the input field for better visibility
 
@@ -172,7 +172,7 @@ mcp-setu chat
 **"Model not found"**
 
 ```bash
-ollama pull gemma2:latest
+ollama pull llama3.2:3b
 ```
 
 **"Model does not support tool calling"**

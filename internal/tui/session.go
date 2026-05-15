@@ -48,7 +48,7 @@ type modelsLoadedMsg struct {
 //	╭──────────────────────╮    (input box with border)
 //	│ ❯ user input         │
 //	╰──────────────────────╯
-//	              ◆ gemma2    (model indicator, right-aligned)
+//	              ◆ llama3.2:3b    (model indicator, right-aligned)
 type SessionModel struct {
 	// terminal
 	width, height int
