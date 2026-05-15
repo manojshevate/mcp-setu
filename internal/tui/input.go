@@ -117,6 +117,9 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == modeModelSelect {
 				// Ignore space in picker mode.
 			} else {
+				if m.cursor < 0 || m.cursor > len(m.value) {
+					m.cursor = len(m.value)
+				}
 				m.value = m.value[:m.cursor] + " " + m.value[m.cursor:]
 				m.cursor++
 				m.updateAC()
@@ -127,12 +130,18 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Any typing exits the picker and starts fresh.
 				m.ExitModelSelect()
 				for _, r := range msg.Runes {
+					if m.cursor < 0 || m.cursor > len(m.value) {
+						m.cursor = len(m.value)
+					}
 					m.value = m.value[:m.cursor] + string(r) + m.value[m.cursor:]
 					m.cursor++
 				}
 				m.updateAC()
 			} else {
 				for _, r := range msg.Runes {
+					if m.cursor < 0 || m.cursor > len(m.value) {
+						m.cursor = len(m.value)
+					}
 					m.value = m.value[:m.cursor] + string(r) + m.value[m.cursor:]
 					m.cursor++
 				}
@@ -184,9 +193,17 @@ func (m InputModel) RenderLine() string {
 		return cursorBlock + lipgloss.NewStyle().Faint(true).Render("type message...")
 	}
 
-	// Non-empty input: position cursor at current location
-	before := m.value[:m.cursor]
-	after := m.value[m.cursor:]
+	// Non-empty input: position cursor at current location.
+	// Clamp cursor to valid bounds to prevent out-of-bounds panics.
+	cur := m.cursor
+	if cur < 0 {
+		cur = 0
+	}
+	if cur > len(m.value) {
+		cur = len(m.value)
+	}
+	before := m.value[:cur]
+	after := m.value[cur:]
 	return before + cursorBlock + after
 }
 
