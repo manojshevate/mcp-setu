@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -19,13 +20,13 @@ import (
 // This is the modern MCP transport standard for remote servers.
 // Supports Bearer token authentication as per MCP specification.
 type HTTPStreamableClient struct {
-	name           string
-	url            string
-	httpClient     *http.Client
-	tokenProvider  TokenProvider
-	tools          map[string]*Tool
-	mu             sync.Mutex
-	nextID         int
+	name          string
+	url           string
+	httpClient    *http.Client
+	tokenProvider TokenProvider
+	tools         map[string]*Tool
+	mu            sync.Mutex
+	nextID        int
 }
 
 // NewHTTPStreamableClient creates a new HTTP Streamable client with optional authentication.
@@ -41,8 +42,8 @@ func NewHTTPStreamableClient(ctx context.Context, name string, url string, token
 			Timeout: 30 * time.Second,
 		},
 		tokenProvider: tokenProvider,
-		tools:  make(map[string]*Tool),
-		nextID: 1,
+		tools:         make(map[string]*Tool),
+		nextID:        1,
 	}
 
 	// Initialize the server
@@ -80,7 +81,10 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 		Method:  "notifications/initialized",
 		Params:  map[string]any{},
 	}
-	notifData, _ := json.Marshal(notif)
+	notifData, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
 	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
 	if err != nil {
 		return fmt.Errorf("failed to create initialized notification request: %w", err)
@@ -114,8 +118,13 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 			for _, t := range toolsSlice {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
-					toolJSON, _ := json.Marshal(toolMap)
+					toolJSON, err := json.Marshal(toolMap)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to marshal tool definition: %v\n", err)
+						continue
+					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to unmarshal tool definition: %v\n", err)
 						continue
 					}
 					c.tools[tool.Name] = &tool
@@ -183,11 +192,19 @@ func (c *HTTPStreamableClient) sendRequest(ctx context.Context, method string, p
 
 	// Marshal params to map.
 	if params != nil {
-		paramJSON, _ := json.Marshal(params)
-		_ = json.Unmarshal(paramJSON, &req.Params)
+		paramJSON, err := json.Marshal(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request params: %w", err)
+		}
+		if err := json.Unmarshal(paramJSON, &req.Params); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to unmarshal request params: %v\n", err)
+		}
 	}
 
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(reqData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
@@ -271,14 +288,14 @@ func (c *HTTPStreamableClient) Close() error {
 // This transport is deprecated in favor of HTTP Streamable but still supported for compatibility.
 // Supports Bearer token authentication as per MCP specification.
 type HTTPSSEClient struct {
-	name           string
-	url            string
-	httpClient     *http.Client
-	tokenProvider  TokenProvider
-	tools          map[string]*Tool
-	mu             sync.Mutex
-	nextID         int
-	lastEventID    string
+	name          string
+	url           string
+	httpClient    *http.Client
+	tokenProvider TokenProvider
+	tools         map[string]*Tool
+	mu            sync.Mutex
+	nextID        int
+	lastEventID   string
 }
 
 // NewHTTPSSEClient creates a new HTTP/SSE client with optional authentication.
@@ -294,8 +311,8 @@ func NewHTTPSSEClient(ctx context.Context, name string, url string, tokenProvide
 			Timeout: 30 * time.Second,
 		},
 		tokenProvider: tokenProvider,
-		tools:  make(map[string]*Tool),
-		nextID: 1,
+		tools:         make(map[string]*Tool),
+		nextID:        1,
 	}
 
 	// Initialize the server
@@ -333,7 +350,10 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 		Method:  "notifications/initialized",
 		Params:  map[string]any{},
 	}
-	notifData, _ := json.Marshal(notif)
+	notifData, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
 	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
 	if err != nil {
 		return fmt.Errorf("failed to create initialized notification request: %w", err)
@@ -367,8 +387,13 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 			for _, t := range toolsSlice {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
-					toolJSON, _ := json.Marshal(toolMap)
+					toolJSON, err := json.Marshal(toolMap)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to marshal tool definition: %v\n", err)
+						continue
+					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to unmarshal tool definition: %v\n", err)
 						continue
 					}
 					c.tools[tool.Name] = &tool
@@ -435,11 +460,19 @@ func (c *HTTPSSEClient) sendRequest(ctx context.Context, method string, params a
 
 	// Marshal params to map.
 	if params != nil {
-		paramJSON, _ := json.Marshal(params)
-		_ = json.Unmarshal(paramJSON, &req.Params)
+		paramJSON, err := json.Marshal(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request params: %w", err)
+		}
+		if err := json.Unmarshal(paramJSON, &req.Params); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to unmarshal request params: %v\n", err)
+		}
 	}
 
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(reqData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)

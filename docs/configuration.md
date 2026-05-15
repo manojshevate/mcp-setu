@@ -16,7 +16,7 @@ The config has two main sections:
 {
   "ollama": {
     "baseUrl": "http://localhost:11434",
-    "model": "gemma2:latest",
+    "model": "llama3.2:3b",
     "systemPrompt": "You are an AI assistant with access to tools via the Model Context Protocol. Use available tools to help the user accomplish their tasks. Be helpful, concise, and direct.",
     "temperature": 0.7,
     "contextLength": 4096
@@ -35,7 +35,7 @@ The config has two main sections:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `baseUrl` | string | `http://localhost:11434` | Ollama API endpoint |
-| `model` | string | `gemma2:latest` | Model to use (must support tool calling) |
+| `model` | string | `llama3.2:3b` | Model to use (must support tool calling) |
 | `systemPrompt` | string | `"You are an AI assistant with access to tools via the Model Context Protocol..."` | System prompt sent with every message |
 | `temperature` | number | `0.7` | Sampling temperature (0–1) |
 | `contextLength` | number | `4096` | Max context window in tokens |
@@ -125,10 +125,9 @@ Server-Sent Events (deprecated but still supported).
 
 | Model | Example | Notes |
 |-------|---------|-------|
-| **Gemma 4** | `gemma2:latest` | ⭐ Recommended—best on-device tool calling |
+| **Llama 3.2** | `llama3.2:3b` | ⭐ Recommended—fast, reliable tool calling |
 | **Gemma 3** | `gemma3:2b` | Efficient, strong tool use |
 | **Qwen** | `qwen2.5:7b` | Excellent tool calling, great for coding |
-| **Llama 3.2** | `llama3.2:3b` | Fast, reliable, good for most tasks |
 | **Llama 3.3** | `llama3.3:70b` | Meta's largest, strongest reasoning |
 | **Mistral** | `mistral-nemo:12b` | Balanced speed and accuracy |
 | **Command R** | `command-r:35b` | Strong multi-tool chaining |

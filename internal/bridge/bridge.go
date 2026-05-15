@@ -45,27 +45,27 @@ type MCPClient interface {
 
 // Stats tracks performance metrics for a session.
 type Stats struct {
-	MessageCount      int           // Total messages sent
-	ToolCallCount     int           // Total tool calls made
-	TotalDuration     time.Duration // Total time spent processing
-	IterationCount    int           // Total iterations across all messages
-	LastResponseTime  time.Duration // Last message response time
-	AverageLoopTime   time.Duration // Average time per iteration
+	MessageCount     int           // Total messages sent
+	ToolCallCount    int           // Total tool calls made
+	TotalDuration    time.Duration // Total time spent processing
+	IterationCount   int           // Total iterations across all messages
+	LastResponseTime time.Duration // Last message response time
+	AverageLoopTime  time.Duration // Average time per iteration
 }
 
 // Bridge orchestrates the agentic loop between Ollama and MCP servers.
 // It maintains the conversation state and coordinates tool calls between the
 // language model and MCP-connected tools, with a safety limit of 20 iterations.
 type Bridge struct {
-	ollamaClient   OllamaClient
-	mcpClient      MCPClient
-	model          string
-	temperature    float64
-	contextLength  int
-	printer        Printer
-	stats          Stats
-	startTime      time.Time
-	mu             sync.RWMutex // protects model and stats
+	ollamaClient  OllamaClient
+	mcpClient     MCPClient
+	model         string
+	temperature   float64
+	contextLength int
+	printer       Printer
+	stats         Stats
+	startTime     time.Time
+	mu            sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
@@ -82,19 +82,37 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 }
 
 // SetModel changes the model and validates tool support.
+// The existence check is performed outside any lock because it is a network
+// call that must not block concurrent readers. After the check succeeds the
+// write lock is held for the entire read-compare-write sequence so the
+// transition is genuinely atomic: no other goroutine can observe a
+// half-updated model or interleave a concurrent SetModel between the read
+// and the write.
 func (b *Bridge) SetModel(ctx context.Context, model string) error {
+	// Cheap early-exit: read current model without a lock using a snapshot
+	// taken under the read lock. If the model is already set we skip the
+	// expensive network round-trip entirely.
 	b.mu.RLock()
-	currentModel := b.model
+	same := b.model == model
 	b.mu.RUnlock()
-
-	if model == currentModel {
+	if same {
 		return nil
 	}
+
+	// Network call outside any lock — intentional; at worst two concurrent
+	// callers both validate successfully and then race to the write lock
+	// below, which is resolved atomically.
 	if err := b.ollamaClient.EnsureModelExists(ctx, model); err != nil {
 		return err
 	}
+
+	// Hold the write lock for the ENTIRE read-compare-write so there is no
+	// window between checking and assigning. This is the single authoritative
+	// critical section for b.model updates.
 	b.mu.Lock()
-	b.model = model
+	if b.model != model {
+		b.model = model
+	}
 	b.mu.Unlock()
 	return nil
 }
@@ -125,7 +143,11 @@ func (b *Bridge) SetPrinter(p Printer) {
 }
 
 // ProcessMessage runs the agentic loop for a user message.
+// A 5-minute timeout is applied to prevent indefinite hangs if the Ollama API stalls.
 func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	start := time.Now()
 
 	// Build tools list for Ollama.

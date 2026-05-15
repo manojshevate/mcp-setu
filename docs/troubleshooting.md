@@ -51,8 +51,8 @@ Solutions to common issues.
 
 1. Use a smaller model:
    ```bash
-   ollama pull gemma2:latest
-   mcp-setu chat --model gemma2:latest
+   ollama pull llama3.2:3b
+   mcp-setu chat --model llama3.2:3b
    ```
 
 2. Reduce context length in config:
@@ -79,7 +79,7 @@ Solutions to common issues.
 mcp-setu models
 
 # Pull a model
-ollama pull gemma2:latest
+ollama pull llama3.2:3b
 
 # Or if you want a different size
 ollama pull qwen2.5:7b
@@ -99,14 +99,14 @@ ollama pull llama3.2:1b
 
 2. Switch to a supported model:
    ```bash
-   mcp-setu chat --model gemma2:latest
+   mcp-setu chat --model llama3.2:3b
    ```
 
 3. Or update your config:
    ```json
    {
      "ollama": {
-       "model": "gemma2:latest"
+       "model": "llama3.2:3b"
      }
    }
    ```

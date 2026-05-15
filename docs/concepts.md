@@ -211,7 +211,7 @@ Three main factors:
 ### Optimization Tips
 
 1. **Use GPU** — Run Ollama with GPU acceleration (100x faster)
-2. **Smaller models** — gemma2:latest is much faster than llama3.3:70b
+2. **Smaller models** — llama3.2:3b is much faster than llama3.3:70b
 3. **Shorter context** — Reduce `contextLength` if responses are slow
 4. **Cache results** — If tools return the same data, the model can reuse answers
 5. **Parallel tools** — Independent tool calls run in parallel

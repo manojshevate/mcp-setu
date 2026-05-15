@@ -9,52 +9,52 @@ import (
 
 func TestInputModelView(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    string
-		width    int
-		cursor   int
+		name           string
+		value          string
+		width          int
+		cursor         int
 		shouldNotPanic bool
 	}{
 		{
-			name:     "empty input",
-			value:    "",
-			width:    80,
-			cursor:   0,
+			name:           "empty input",
+			value:          "",
+			width:          80,
+			cursor:         0,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "short input",
-			value:    "hello",
-			width:    80,
-			cursor:   5,
+			name:           "short input",
+			value:          "hello",
+			width:          80,
+			cursor:         5,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "long input with large width",
-			value:    "this is a very long input that should fit in the terminal",
-			width:    200,
-			cursor:   20,
+			name:           "long input with large width",
+			value:          "this is a very long input that should fit in the terminal",
+			width:          200,
+			cursor:         20,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "long input with small width",
-			value:    "this is a very long input that does not fit in the terminal",
-			width:    10,
-			cursor:   30,
+			name:           "long input with small width",
+			value:          "this is a very long input that does not fit in the terminal",
+			width:          10,
+			cursor:         30,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "very small width",
-			value:    "hello",
-			width:    1,
-			cursor:   3,
+			name:           "very small width",
+			value:          "hello",
+			width:          1,
+			cursor:         3,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "zero width",
-			value:    "hello",
-			width:    0,
-			cursor:   2,
+			name:           "zero width",
+			value:          "hello",
+			width:          0,
+			cursor:         2,
 			shouldNotPanic: true,
 		},
 	}
@@ -62,9 +62,9 @@ func TestInputModelView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := InputModel{
-				value:  tt.value,
-				width:  tt.width,
-				cursor: tt.cursor,
+				valueRunes: []rune(tt.value),
+				width:      tt.width,
+				cursor:     tt.cursor,
 			}
 
 			// This should not panic
@@ -81,20 +81,20 @@ func TestInputModelDirectUpdates(t *testing.T) {
 	m.SetWidth(80)
 
 	// Test GetValue
-	m.value = "test"
+	m.valueRunes = []rune("test")
 	if m.GetValue() != "test" {
 		t.Errorf("expected 'test', got '%s'", m.GetValue())
 	}
 
 	// Test Clear
 	m.Clear()
-	if m.value != "" {
-		t.Errorf("expected empty value after clear, got '%s'", m.value)
+	if len(m.valueRunes) != 0 {
+		t.Errorf("expected empty value after clear, got '%s'", string(m.valueRunes))
 	}
 
 	// Test cursor position
 	m.cursor = 5
-	m.value = "hello world"
+	m.valueRunes = []rune("hello world")
 	if m.cursor != 5 {
 		t.Errorf("expected cursor at 5, got %d", m.cursor)
 	}
@@ -153,14 +153,14 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 	m := NewInputModel()
 
 	// No autocomplete without /
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.updateAC()
 	if m.mode == modeAutocomplete {
 		t.Error("expected no autocomplete for non-slash input")
 	}
 
 	// Autocomplete with /
-	m.value = "/t"
+	m.valueRunes = []rune("/t")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Error("expected autocomplete mode for /t")
@@ -170,7 +170,7 @@ func TestInputModelUpdateAutocomplete(t *testing.T) {
 	}
 
 	// No autocomplete for non-matching prefix
-	m.value = "/xyz"
+	m.valueRunes = []rune("/xyz")
 	m.updateAC()
 	if m.mode == modeAutocomplete && len(m.autocomplete) > 0 {
 		t.Error("expected no autocomplete for /xyz")
@@ -186,14 +186,14 @@ func TestInputModelModeEnum(t *testing.T) {
 	}
 
 	// Typing /m triggers autocomplete mode.
-	m.value = "/m"
+	m.valueRunes = []rune("/m")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after /m, got %d", m.mode)
 	}
 
 	// Clearing the value returns to normal mode.
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.updateAC()
 	if m.mode != modeNormal {
 		t.Errorf("expected modeNormal for non-slash input, got %d", m.mode)
@@ -253,8 +253,8 @@ func TestInputModelModelSelect(t *testing.T) {
 	if m.mode != modeNormal {
 		t.Errorf("expected modeNormal after ExitModelSelect, got %d", m.mode)
 	}
-	if m.value != "" {
-		t.Errorf("expected empty value after ExitModelSelect, got %q", m.value)
+	if len(m.valueRunes) != 0 {
+		t.Errorf("expected empty value after ExitModelSelect, got %q", string(m.valueRunes))
 	}
 }
 
@@ -277,7 +277,7 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	m.SetModels([]string{"llama3", "llama2", "mistral"})
 
 	// Typing "/model " should trigger model-name autocomplete.
-	m.value = "/model "
+	m.valueRunes = []rune("/model ")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after '/model ', got %d", m.mode)
@@ -287,7 +287,7 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	}
 
 	// Typing "/model ll" should narrow to llama3, llama2.
-	m.value = "/model ll"
+	m.valueRunes = []rune("/model ll")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Errorf("expected modeAutocomplete after '/model ll', got %d", m.mode)
@@ -297,14 +297,14 @@ func TestInputModelModelAutocomplete(t *testing.T) {
 	}
 
 	// Typing "/model mis" should narrow to mistral only.
-	m.value = "/model mis"
+	m.valueRunes = []rune("/model mis")
 	m.updateAC()
 	if len(m.autocomplete) != 1 {
 		t.Errorf("expected 1 autocomplete match for 'mis', got %d", len(m.autocomplete))
 	}
 
 	// Typing "/model zzz" (no match) should exit autocomplete.
-	m.value = "/model zzz"
+	m.valueRunes = []rune("/model zzz")
 	m.updateAC()
 	if m.mode == modeAutocomplete {
 		t.Error("expected no autocomplete for '/model zzz' with no matching models")
@@ -315,8 +315,8 @@ func TestGetMatchingModels(t *testing.T) {
 	models := []string{"llama3", "llama2", "mistral", "phi3"}
 
 	tests := []struct {
-		prefix   string
-		wantLen  int
+		prefix  string
+		wantLen int
 	}{
 		{"", 4},
 		{"ll", 2},
@@ -350,7 +350,7 @@ func TestInputModelRenderAutocomplete(t *testing.T) {
 	}
 
 	// Autocomplete mode — overlay contains suggestions.
-	m.value = "/t"
+	m.valueRunes = []rune("/t")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Skip("no autocomplete triggered, skipping")
@@ -388,7 +388,7 @@ func TestInputModelRenderLine(t *testing.T) {
 	}
 
 	// Normal mode with value.
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.cursor = 5
 	line = m.RenderLine()
 	if !strings.Contains(line, "hello") {
@@ -405,5 +405,147 @@ func TestInputModelRenderLine(t *testing.T) {
 	}
 	if line2 == "" {
 		t.Error("expected guidance text in RenderLine for picker mode")
+	}
+}
+
+// TestInputModelEnterSends verifies that plain Enter fires a SendMsg (default chat behaviour).
+func TestInputModelEnterSends(t *testing.T) {
+	m := NewInputModel()
+	m.valueRunes = []rune("hello")
+	m.cursor = 5
+
+	// Press plain Enter → SendMsg fired.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for plain Enter (send)")
+	}
+	msg := cmd()
+	if _, ok := msg.(SendMsg); !ok {
+		t.Errorf("expected SendMsg from Enter, got %T", msg)
+	}
+}
+
+// TestInputModelShiftEnterInsertsNewline verifies that Shift+Enter inserts a newline.
+// Note: bubbletea v1.3.10 KeyMsg has no Shift field; Shift+Enter is detected via
+// msg.Alt (Alt+Enter escape sequence is the cross-platform terminal trigger).
+func TestInputModelShiftEnterInsertsNewline(t *testing.T) {
+	m := NewInputModel()
+	m.valueRunes = []rune("hello")
+	m.cursor = 5
+
+	// Press Shift+Enter (detected as Alt+Enter in terminal) → newline inserted (not SendMsg).
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
+	m = updated.(InputModel)
+
+	// cmd should be nil for a newline insertion.
+	if cmd != nil {
+		t.Error("expected nil cmd for Shift+Enter (newline), got non-nil")
+	}
+	if !strings.Contains(string(m.valueRunes), "\n") {
+		t.Errorf("expected newline in value after Shift+Enter, got %q", string(m.valueRunes))
+	}
+	if m.LineCount() != 2 {
+		t.Errorf("expected 2 lines after Shift+Enter, got %d", m.LineCount())
+	}
+}
+
+// TestInputModelLineCount checks LineCount for various values.
+func TestInputModelLineCount(t *testing.T) {
+	cases := []struct {
+		value string
+		want  int
+	}{
+		{"", 1},
+		{"hello", 1},
+		{"hello\nworld", 2},
+		{"a\nb\nc", 3},
+	}
+	for _, tc := range cases {
+		m := InputModel{valueRunes: []rune(tc.value)}
+		if got := m.LineCount(); got != tc.want {
+			t.Errorf("LineCount(%q) = %d, want %d", tc.value, got, tc.want)
+		}
+	}
+}
+
+// TestInputModelMultilineRenderLine verifies the "(N lines)" indicator appears.
+func TestInputModelMultilineRenderLine(t *testing.T) {
+	m := InputModel{valueRunes: []rune("line1\nline2\nline3"), cursor: 17}
+	line := m.RenderLine()
+	if !strings.Contains(line, "3 lines") {
+		t.Errorf("expected '3 lines' indicator in multiline RenderLine, got %q", line)
+	}
+	if !strings.Contains(line, "line1") {
+		t.Errorf("expected first line 'line1' in RenderLine, got %q", line)
+	}
+	if !strings.Contains(line, "shift+enter for newline") {
+		t.Errorf("expected 'shift+enter for newline' hint in multiline RenderLine, got %q", line)
+	}
+}
+
+// TestInputModelGetValuePreservesNewlines ensures internal newlines survive GetValue.
+func TestInputModelGetValuePreservesNewlines(t *testing.T) {
+	m := InputModel{valueRunes: []rune("hello\nworld")}
+	v := m.GetValue()
+	if v != "hello\nworld" {
+		t.Errorf("expected GetValue to preserve newlines, got %q", v)
+	}
+}
+
+// TestPluralLines verifies the pluralLines helper.
+func TestPluralLines(t *testing.T) {
+	if got := pluralLines(1); got != "1 line" {
+		t.Errorf("pluralLines(1) = %q, want '1 line'", got)
+	}
+	if got := pluralLines(3); got != "3 lines" {
+		t.Errorf("pluralLines(3) = %q, want '3 lines'", got)
+	}
+}
+
+// TestInputModelNonASCII verifies that multibyte Unicode characters (accented
+// letters, arrows, CJK characters, emoji) are not corrupted when typed, edited
+// via Backspace, and retrieved via GetValue.
+func TestInputModelNonASCII(t *testing.T) {
+	// Simulate typing "héllo→世界" character by character.
+	input := []rune("héllo→世界")
+	m := NewInputModel()
+	for _, r := range input {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(InputModel)
+	}
+
+	got := m.GetValue()
+	want := "héllo→世界"
+	if got != want {
+		t.Errorf("GetValue after typing non-ASCII: got %q, want %q", got, want)
+	}
+	if m.cursor != len(input) {
+		t.Errorf("cursor should be at rune position %d, got %d", len(input), m.cursor)
+	}
+
+	// Backspace should remove the last rune ('界') cleanly.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = updated.(InputModel)
+	got = m.GetValue()
+	if got != "héllo→世" {
+		t.Errorf("GetValue after Backspace: got %q, want %q", "héllo→世", got)
+	}
+	if m.cursor != len(input)-1 {
+		t.Errorf("cursor after Backspace should be %d, got %d", len(input)-1, m.cursor)
+	}
+
+	// Insert 'Z' in the middle (after 'é', at rune index 2).
+	m.cursor = 2
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Z'}})
+	m = updated.(InputModel)
+	got = m.GetValue()
+	if got != "héZllo→世" {
+		t.Errorf("GetValue after mid-insert: got %q, want %q", "héZllo→世", got)
+	}
+
+	// RenderLine must not panic and must contain non-ASCII text.
+	line := m.RenderLine()
+	if line == "" {
+		t.Error("RenderLine returned empty string for non-ASCII input")
 	}
 }

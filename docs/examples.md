@@ -11,7 +11,7 @@ Analyze code files in your project:
 cat > mcp.json << 'EOF'
 {
   "ollama": {
-    "model": "gemma2:latest",
+    "model": "llama3.2:3b",
     "systemPrompt": "You are an expert code reviewer. Analyze code structure, performance, security, and best practices. Use the filesystem to read and examine files. Provide actionable feedback and suggestions for improvement."
   },
   "mcpServers": {
@@ -84,7 +84,7 @@ Maintain context across conversations:
 cat > mcp.json << 'EOF'
 {
   "ollama": {
-    "model": "gemma2:latest",
+    "model": "llama3.2:3b",
     "systemPrompt": "You are a helpful assistant with persistent memory across sessions. Use the memory tool to save important context and retrieve previous information. Maintain continuity and remember user preferences and project details."
   },
   "mcpServers": {
@@ -170,9 +170,9 @@ mcp-setu chat
 ```
 ❯ /model
 
-Current model: gemma2:latest
+Current model: llama3.2:3b
 Available models:
-  ✓ gemma2:latest (tool support)
+  ✓ llama3.2:3b (tool support)
   ✓ qwen2.5:7b (tool support)
   - llama2:7b (no tool support)
   ✓ mistral-nemo:12b (tool support)

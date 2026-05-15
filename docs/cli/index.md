@@ -45,7 +45,7 @@ mcp-setu chat --help
 Start an interactive multi-turn chat session with Ollama using configured MCP tools. The chat runs in a full-screen TUI with a modern interface:
 
 - **Input Box**: A bordered box at the bottom with rounded corners where you type your messages
-- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., `◆ gemma2:latest`)
+- **Active Model Badge**: The currently selected model appears in the bottom-right corner (e.g., `◆ llama3.2:3b`)
 - **Cursor Behavior**: The cursor starts at the beginning of the input field (like Claude Code) and moves naturally as you type
 - **Scrolling Output**: Assistant responses, tool calls, and command output scroll in the panel above the input
 - **Processing Timer**: While the model is thinking, a live elapsed timer shows above the input (e.g., `⟳ thinking… 2s`)
@@ -193,7 +193,7 @@ mcp-setu models
 ┌─────────────────────┬────────┬────────────────┐
 │ Model               │ Size   │ Tool Support   │
 ├─────────────────────┼────────┼────────────────┤
-│ gemma2:latest          │ 4 GB   │ ✓ Yes          │
+│ llama3.2:3b          │ 4 GB   │ ✓ Yes          │
 │ qwen2.5:7b          │ 6 GB   │ ✓ Yes          │
 │ llama3.2:3b         │ 2 GB   │ ✓ Yes          │
 │ mistral-nemo:12b    │ 9 GB   │ ✓ Yes          │
@@ -228,7 +228,7 @@ mcp-setu validate
 
 ```
 ✓ Config file valid
-✓ Model gemma2:latest found and supports tool calling
+✓ Model llama3.2:3b found and supports tool calling
 ✓ MCP server "filesystem" connected with 3 tools
 ✓ MCP server "memory" connected with 2 tools
 ✓ All validations passed!
@@ -239,7 +239,7 @@ mcp-setu validate
 ```
 ✗ Model llama2:7b does not support tool calling
 Supported models:
-  ✓ gemma2:latest
+  ✓ llama3.2:3b
   ✓ qwen2.5:7b
   ...
 ```

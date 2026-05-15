@@ -8,7 +8,7 @@ A Go CLI that bridges [Ollama](https://ollama.com) to [MCP](https://modelcontext
 ```
 ┌──────────────┐                  ┌──────────────┐  JSON-RPC stdio  ┌──────────────┐
 │    Ollama    │  /api/chat HTTP  │   mcp-setu   │ ◄──────────────► │  MCP Server  │
-│  (gemma2,    │ ◄──────────────► │   (bridge)   │                  │ (filesystem, │
+│  (llama3.2,  │ ◄──────────────► │   (bridge)   │                  │ (filesystem, │
 │  qwen2.5, …) │                  │              │                  │  sqlite, …)  │
 └──────────────┘                  └──────────────┘                  └──────────────┘
 ```
@@ -36,7 +36,7 @@ irm https://raw.githubusercontent.com/manojshevate/mcp-setu/main/scripts/install
 
 ```bash
 ollama serve                                  # in another terminal
-ollama pull gemma2:latest                     # any tool-capable model
+ollama pull llama3.2:3b                     # any tool-capable model
 mcp-setu chat                                 # opens the TUI
 ```
 
@@ -44,7 +44,7 @@ A minimal `mcp.json` (Claude Desktop-compatible):
 
 ```json
 {
-  "ollama": { "model": "gemma2:latest" },
+  "ollama": { "model": "llama3.2:3b" },
   "mcpServers": {
     "memory": {
       "command": "npx",
@@ -98,7 +98,7 @@ The interactive chat is a full-screen TUI with the input pinned at the bottom in
 **Model Selection Examples:**
 - Type `/model` + Enter → Opens interactive picker where you navigate with arrow keys and confirm with Enter
 - Type `/model ` (with space) → Shows autocomplete suggestions for available model names (use Tab to complete)
-- Type `/model gemma2:latest` → Directly switch to the specified model
+- Type `/model llama3.2:3b` → Directly switch to the specified model
 
 ### Processing Status
 

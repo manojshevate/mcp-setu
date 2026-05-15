@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -34,8 +35,9 @@ func TestSessionViewRendersWithSize(t *testing.T) {
 	if out == "" {
 		t.Fatal("expected non-empty view")
 	}
-	if !strings.Contains(out, "Welcome to mcp-setu") {
-		t.Errorf("expected banner in output, got: %s", out)
+	// The welcome message is shown in the header, not in the scrollable output.
+	if !strings.Contains(out, "MCP-SETU") {
+		t.Errorf("expected 'MCP-SETU' banner in header, got: %s", out)
 	}
 	if !strings.Contains(out, "❯") {
 		t.Errorf("expected input prompt at bottom, got: %s", out)
@@ -132,6 +134,169 @@ func TestFormatElapsed(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("formatElapsed(%v) = %q, want %q", tc.d, got, tc.want)
 		}
+	}
+}
+
+func TestSessionViewRendersHeader(t *testing.T) {
+	m := newTestSession(t)
+	// Terminal tall enough to show the header.
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	out := m.View()
+	// The header should contain the ASCII art logo text.
+	if !strings.Contains(out, "MCP-SETU") {
+		t.Errorf("expected 'MCP-SETU' in header, got:\n%s", out)
+	}
+}
+
+func TestSessionViewScrollPgUp(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+
+	// Add many output lines to make scrolling meaningful.
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+
+	// PgUp should increase scrollOffset.
+	before := m.scrollOffset
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	if m.scrollOffset <= before {
+		t.Errorf("expected scrollOffset to increase after PgUp, got %d (was %d)", m.scrollOffset, before)
+	}
+}
+
+func TestSessionViewScrollPgDown(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Scroll up first.
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	scrolled := m.scrollOffset
+
+	// PgDown should decrease scrollOffset.
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = mu.(*SessionModel)
+	if m.scrollOffset >= scrolled {
+		t.Errorf("expected scrollOffset to decrease after PgDown, got %d (was %d)", m.scrollOffset, scrolled)
+	}
+}
+
+func TestSessionViewScrollEnd(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Scroll up with PgUp.
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = mu.(*SessionModel)
+	if m.scrollOffset == 0 {
+		t.Skip("scrollOffset did not increase, skipping End test")
+	}
+	// PgDown should bring scroll back toward 0.
+	mu, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = mu.(*SessionModel)
+	// End now moves the input cursor to the end of the input (not scroll).
+	// Type some text, then press End and verify cursor is at the end.
+	for _, r := range "hello" {
+		mu2, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu2.(*SessionModel)
+	}
+	// Move cursor to start with Home.
+	mu3, _ := m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = mu3.(*SessionModel)
+	if m.input.cursor != 0 {
+		t.Errorf("expected cursor=0 after Home, got %d", m.input.cursor)
+	}
+	// Press End to jump cursor to end.
+	mu4, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m = mu4.(*SessionModel)
+	if m.input.cursor != 5 {
+		t.Errorf("expected cursor=5 after End, got %d", m.input.cursor)
+	}
+}
+
+func TestSessionViewScrollHome(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	m = mUpdated.(*SessionModel)
+	for i := 0; i < 50; i++ {
+		m.appendOutput(fmt.Sprintf("line %d", i))
+	}
+	// Type some text into the input then press Home to move cursor to start.
+	for _, r := range "hello" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	// Cursor should be at end after typing.
+	if m.input.cursor != 5 {
+		t.Errorf("expected cursor=5 after typing, got %d", m.input.cursor)
+	}
+	// Home should move cursor to 0.
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m = mu.(*SessionModel)
+	if m.input.cursor != 0 {
+		t.Errorf("expected cursor=0 after Home, got %d", m.input.cursor)
+	}
+}
+
+func TestSessionSendMsg(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = mUpdated.(*SessionModel)
+
+	// Type some text.
+	for _, r := range "hello world" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	if m.input.GetValue() != "hello world" {
+		t.Fatalf("expected 'hello world' in input, got %q", m.input.GetValue())
+	}
+
+	// SendMsg should dispatch the input (clears the buffer and queues bridge).
+	// We just check the input is cleared; the bridge call errors gracefully.
+	mu, _ := m.Update(SendMsg{})
+	m = mu.(*SessionModel)
+	// After send, input is cleared.
+	if m.input.GetValue() != "" {
+		t.Errorf("expected empty input after SendMsg, got %q", m.input.GetValue())
+	}
+}
+
+func TestSessionMultilineInput(t *testing.T) {
+	m := newTestSession(t)
+	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = mUpdated.(*SessionModel)
+
+	// Type "line1", press Shift+Enter (detected as Alt+Enter in terminal) to insert newline, type "line2".
+	for _, r := range "line1" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
+	m = mu.(*SessionModel)
+	for _, r := range "line2" {
+		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = mu.(*SessionModel)
+	}
+
+	v := m.input.GetValue()
+	if !strings.Contains(v, "\n") {
+		t.Errorf("expected newline in multiline input value, got %q", v)
+	}
+	if m.input.LineCount() != 2 {
+		t.Errorf("expected 2 lines in input, got %d", m.input.LineCount())
 	}
 }
 

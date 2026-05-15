@@ -30,7 +30,7 @@ The `internal/tui/` package provides an interactive chat session with modern UI 
 
 - **Bordered Input Box**: Messages are typed in a styled box with rounded corners (`╭`, `╮`, `╰`, `╯`) that spans the terminal width with 1-char padding on each side
 - **Dynamic Height**: Input box automatically wraps long text across multiple lines while maintaining the fixed input position at the bottom
-- **Model Indicator Badge**: Currently active model displayed in the bottom-right corner (e.g., `◆ gemma2:latest`), with automatic truncation for long model names
+- **Model Indicator Badge**: Currently active model displayed in the bottom-right corner (e.g., `◆ llama3.2:3b`), with automatic truncation for long model names
 - **Cursor at Start**: Cursor appears at the beginning of input (like Claude Code) and moves naturally as user types
 - **Upward Autocomplete**: Slash-command suggestions rendered *above* the input field for better visibility
 
@@ -65,6 +65,24 @@ Key components:
 - Esc in autocomplete: Dismisses dropdown without clearing typed text
 - Typing while in picker: Exits picker and starts fresh text entry
 - Up/Down arrows: Navigate history in normal mode, navigate options in picker/autocomplete
+
+#### Multiline Input
+
+- `Enter`: Send the message
+- `Shift+Enter`: Insert a newline for multiline input (works on all platforms)
+- When input contains multiple lines, `RenderLine()` shows the first line plus a `(N lines · shift+enter for newline)` indicator
+- `LineCount()` method returns the number of lines in the current value
+- Implementation note: bubbletea v1.3.10 `KeyMsg` has no `Shift` field; the modifier is detected via `msg.Alt` (`tea.KeyEnter` + `Alt: true`) which is the reliable cross-platform escape sequence
+
+#### TUI Layout (Header / Middle / Footer)
+
+The screen is divided into three sections:
+1. **Header** (`headerHeight = 8` lines): ASCII art logo (`╭─────────╮ │ MCP-SETU│ …`) on the left, welcome/server info on the right. Suppressed on very small terminals.
+2. **Middle** (variable height): Scrollable message area. PgUp/PgDn scrolls; Home/End jumps to top/bottom. Scroll indicator `↑ N lines above` appears when scrolled.
+3. **Footer**: Separator + optional status + optional autocomplete + input box + model badge.
+- `scrollOffset int` on SessionModel tracks how many lines are scrolled up from the bottom (0 = tail).
+- `renderHeader()` builds the header string slice (exactly `headerHeight` lines).
+- `scrollPageSize()` / `middleHeight()` helpers coordinate scroll step size.
 
 #### Processing Status
 
