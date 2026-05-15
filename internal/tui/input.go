@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +16,11 @@ const (
 	modeAutocomplete                  // slash-command autocomplete dropdown visible
 	modeModelSelect                   // interactive model picker (no text entry)
 )
+
+// SendMsg is a message fired when the user confirms their input for sending
+// (Ctrl+Enter or Cmd+Enter in multiline mode, or Enter in single-line mode
+// when multiline is disabled).
+type SendMsg struct{}
 
 type InputModel struct {
 	value        string
@@ -87,6 +93,28 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.value = ""
 					m.cursor = 0
 				}
+			}
+
+		case tea.KeyEnter:
+			// Alt+Enter (Option+Enter on macOS) sends the message.
+			// Plain Enter inserts a newline for multiline input.
+			// In model picker mode this case is never reached because session.go
+			// handles tea.KeyEnter directly before delegating to InputModel.Update.
+			if m.mode == modeModelSelect {
+				// Guard: shouldn't happen, but be safe.
+			} else if msg.Alt {
+				// Alt+Enter (Ctrl+Enter on some terminals) → send.
+				return m, func() tea.Msg { return SendMsg{} }
+			} else {
+				// Plain Enter → insert newline.
+				if m.cursor < 0 || m.cursor > len(m.value) {
+					m.cursor = len(m.value)
+				}
+				m.value = m.value[:m.cursor] + "\n" + m.value[m.cursor:]
+				m.cursor++
+				// Newlines cancel any active autocomplete.
+				m.mode = modeNormal
+				m.autocomplete = nil
 			}
 
 		case tea.KeyBackspace:
@@ -179,8 +207,19 @@ func (m *InputModel) updateAC() {
 	}
 }
 
+// LineCount returns the number of lines in the current value (1 for single-line).
+func (m InputModel) LineCount() int {
+	if m.value == "" {
+		return 1
+	}
+	return strings.Count(m.value, "\n") + 1
+}
+
 // RenderLine returns just the input line (prompt cursor, placeholder, etc.)
 // without any autocomplete or picker overlay.
+//
+// For multiline content, it renders the first line of text and appends a muted
+// "(N lines)" indicator so the user knows there are additional lines.
 func (m InputModel) RenderLine() string {
 	if m.mode == modeModelSelect {
 		return lipgloss.NewStyle().Faint(true).Render("↑/↓ select model · enter confirm · esc cancel")
@@ -189,11 +228,11 @@ func (m InputModel) RenderLine() string {
 	cursorBlock := lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
 
 	if m.value == "" {
-		// Empty input: show cursor at start with placeholder
-		return cursorBlock + lipgloss.NewStyle().Faint(true).Render("type message...")
+		// Empty input: show cursor at start with placeholder.
+		hint := lipgloss.NewStyle().Faint(true).Render("type message… alt+enter to send")
+		return cursorBlock + hint
 	}
 
-	// Non-empty input: position cursor at current location.
 	// Clamp cursor to valid bounds to prevent out-of-bounds panics.
 	cur := m.cursor
 	if cur < 0 {
@@ -202,9 +241,39 @@ func (m InputModel) RenderLine() string {
 	if cur > len(m.value) {
 		cur = len(m.value)
 	}
-	before := m.value[:cur]
-	after := m.value[cur:]
-	return before + cursorBlock + after
+
+	lineCount := m.LineCount()
+	if lineCount <= 1 {
+		// Single-line: show the full value with cursor.
+		before := m.value[:cur]
+		after := m.value[cur:]
+		return before + cursorBlock + after
+	}
+
+	// Multiline: show only the first line and a "(N lines · ctrl+enter to send)" hint.
+	firstLine := m.value
+	if nl := strings.Index(m.value, "\n"); nl >= 0 {
+		firstLine = m.value[:nl]
+	}
+	indicator := lipgloss.NewStyle().Faint(true).Render(
+		fmt.Sprintf(" (%s · alt+enter to send)", pluralLines(lineCount)),
+	)
+
+	// Render cursor within the first line if it falls there, otherwise at the end.
+	if cur <= len(firstLine) {
+		before := firstLine[:cur]
+		after := firstLine[cur:]
+		return before + cursorBlock + after + indicator
+	}
+	return firstLine + indicator
+}
+
+// pluralLines returns "N line" or "N lines".
+func pluralLines(n int) string {
+	if n == 1 {
+		return "1 line"
+	}
+	return fmt.Sprintf("%d lines", n)
 }
 
 // RenderAutocomplete returns the autocomplete/picker overlay lines (without a
@@ -315,8 +384,10 @@ func (m *InputModel) SetCurrentModel(name string) {
 	m.currentModel = name
 }
 
+// GetValue returns the current input value with leading/trailing whitespace trimmed.
+// Internal newlines (multiline content) are preserved.
 func (m InputModel) GetValue() string {
-	return strings.TrimSpace(m.value)
+	return strings.Trim(m.value, " \t\r\n")
 }
 
 func (m *InputModel) Clear() {

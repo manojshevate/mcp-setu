@@ -31,7 +31,15 @@ var (
 
 	styleModelBadge = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280"))
+
+	styleHeaderArt     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Bold(true)
+	styleHeaderWelcome = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
+	styleHeaderMuted   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
 )
+
+// headerHeight is the fixed number of lines the header occupies at the top
+// of the terminal. It contains the ASCII art logo and welcome message.
+const headerHeight = 8
 
 // modelsLoadedMsg is fired when the background model fetch completes.
 type modelsLoadedMsg struct {
@@ -74,6 +82,7 @@ type SessionModel struct {
 	processingStart time.Time
 	eventCh         chan Event
 	printerWire     bool // set true after the TUI printer is installed on the bridge
+	scrollOffset    int  // lines scrolled up from the bottom (0 = show tail)
 }
 
 func NewSessionModel(
@@ -195,6 +204,29 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Page Up / Page Down / Home / End: scroll the message area.
+		if msg.Type == tea.KeyPgUp {
+			m.scrollOffset += m.scrollPageSize()
+			return m, nil
+		}
+		if msg.Type == tea.KeyPgDown {
+			m.scrollOffset -= m.scrollPageSize()
+			if m.scrollOffset < 0 {
+				m.scrollOffset = 0
+			}
+			return m, nil
+		}
+		if msg.Type == tea.KeyHome {
+			// Scroll to the very top of the history.
+			m.scrollOffset = len(m.renderOutputLines(0))
+			return m, nil
+		}
+		if msg.Type == tea.KeyEnd {
+			// Jump back to the latest (bottom).
+			m.scrollOffset = 0
+			return m, nil
+		}
+
 		// Escape: exit picker or dismiss autocomplete.
 		if msg.Type == tea.KeyEsc {
 			if m.input.Mode() == modeModelSelect {
@@ -206,7 +238,7 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.Type == tea.KeyEnter {
-			// In model picker mode, confirm selection.
+			// In model picker mode, Enter confirms the selection.
 			if m.input.Mode() == modeModelSelect {
 				selected := m.input.SelectedModel()
 				m.input.ExitModelSelect()
@@ -222,39 +254,21 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			value := m.input.GetValue()
-			if value == "" {
-				return m, nil
-			}
-			m.input.AddToHistory(value)
-			m.appendUser(value)
-			m.input.Clear()
-
-			// Handle "/model" (bare, no name) → enter picker.
-			if value == "/model" {
-				m.input.EnterModelSelect()
-				return m, nil
-			}
-
-			if cmd, handled := m.handleSlashCommand(value); handled {
-				return m, cmd
-			}
-
-			// Install the TUI printer on the bridge exactly once, just-in-time.
-			if !m.printerWire {
-				m.br.SetPrinter(NewPrinter(m.eventCh, m.verbose))
-				m.printerWire = true
-			}
-
-			m.history = append(m.history, ollama.Message{Role: "user", Content: value})
-			m.processing = true
-			m.processingStart = time.Now()
-			m.status = "⟳ thinking…"
-			return m, tea.Batch(m.runBridge(value), m.waitForEvent())
+			// In all other modes, delegate to InputModel which inserts a newline.
+			updated, inputCmd := m.input.Update(msg)
+			m.input = updated.(InputModel)
+			return m, inputCmd
 		}
-		updated, _ := m.input.Update(msg)
+		updated, inputCmd := m.input.Update(msg)
 		m.input = updated.(InputModel)
-		return m, nil
+		return m, inputCmd
+
+	case SendMsg:
+		// Fired by Ctrl+Enter / Cmd+Enter: send the buffered input.
+		if m.processing {
+			return m, nil
+		}
+		return m, m.sendCurrentInput()
 
 	case eventMsg:
 		m.handleEvent(msg.ev)
@@ -285,28 +299,31 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the screen. The layout from top to bottom is:
 //
-//	output area  (scrolling)
-//	separator
-//	status line  (only when processing)
-//	autocomplete / picker overlay  (above the input box)
-//	╭─────────────────────────────────────────╮
-//	│ ❯ input                                 │
-//	╰─────────────────────────────────────────╯
-//	                              ◆ model-name
+//	╭──────────────────────────────────────────────╮
+//	│  ASCII art logo   │   Welcome / server info  │  ← header (headerHeight lines)
+//	├──────────────────────────────────────────────┤
+//	│                                              │
+//	│           scrollable message area            │  ← middle (variable height)
+//	│                                              │
+//	├──────────────────────────────────────────────┤  ← separator
+//	│  ⟳ thinking…  (status line, when active)    │
+//	│  [autocomplete / picker overlay]             │
+//	│ ╭──────────────────────────────────────────╮ │
+//	│ │ ❯ input                                  │ │  ← input box (border)
+//	│ ╰──────────────────────────────────────────╯ │
+//	│                              ◆ model-name    │  ← model badge
+//	╰──────────────────────────────────────────────╯
 func (m *SessionModel) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
 
-	// Bottom-pinned chrome.
+	// ── FOOTER (input box + accessories) ──────────────────────────────
 	separator := styleSeparator.Render(strings.Repeat("─", m.width))
 
-	// Input box: border wraps the prompt+input line (3 rows: top border, content, bottom border).
-	// Width constraint: m.width - 2 accounts for the left and right border (each 1 col).
 	rawInputLine := stylePrompt.Render("❯ ") + m.input.RenderLine()
 	inputBox := styleInputBox.Width(m.width - 2).Render(rawInputLine)
 
-	// Model footer: right-aligned badge below the input box.
 	modelFooter := ""
 	if m.model != "" {
 		badge := styleModelBadge.Render("◆ " + truncateModel(m.model, m.width))
@@ -323,34 +340,100 @@ func (m *SessionModel) View() string {
 	}
 	acBlock := m.input.RenderAutocomplete()
 
-	// Calculate how many rows the bottom chrome consumes.
-	// The input box may wrap to multiple lines if content is long; count actual height.
+	// Footer height: separator + optional status + optional ac + inputBox + optional modelFooter.
 	inputBoxLines := strings.Count(inputBox, "\n") + 1
 	acLines := 0
 	if acBlock != "" {
 		acLines = strings.Count(acBlock, "\n") + 1
 	}
-	chromeHeight := 1 + inputBoxLines + acLines // separator + inputBox + ac
+	footerHeight := 1 + inputBoxLines + acLines // separator(1) + inputBox + ac
 	if statusLine != "" {
-		chromeHeight++
+		footerHeight++
 	}
 	if modelFooter != "" {
-		chromeHeight++
-	}
-	outputHeight := m.height - chromeHeight
-	if outputHeight < 1 {
-		outputHeight = 1
+		footerHeight++
 	}
 
-	// Build visible output.
-	visual := m.renderOutputLines(outputHeight)
+	// ── MIDDLE (scrollable messages) ──────────────────────────────────
+	// Effective header rows: use headerHeight only when terminal is tall enough.
+	effectiveHeaderHeight := headerHeight
+	if m.height < headerHeight+footerHeight+3 {
+		// Tiny terminal: drop the header entirely so messages are still visible.
+		effectiveHeaderHeight = 0
+	}
+	middleHeight := m.height - effectiveHeaderHeight - footerHeight
+	if middleHeight < 1 {
+		middleHeight = 1
+	}
 
-	// Pad the top so output hugs the bottom (against the separator).
-	if pad := outputHeight - len(visual); pad > 0 {
+	// Build all visual lines from the output buffer.
+	allVisual := m.renderOutputLines(0) // 0 = no cap, get everything
+	totalLines := len(allVisual)
+
+	// Clamp scroll offset so we never scroll past the top.
+	maxOffset := totalLines - middleHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+
+	// Slice the window: scrollOffset=0 means bottom (latest), higher = older.
+	var visual []string
+	if m.scrollOffset == 0 {
+		// Normal view: latest lines at the bottom.
+		if len(allVisual) > middleHeight {
+			visual = allVisual[len(allVisual)-middleHeight:]
+		} else {
+			visual = allVisual
+		}
+	} else {
+		// Scrolled up: show older content.
+		endIdx := totalLines - m.scrollOffset
+		if endIdx > totalLines {
+			endIdx = totalLines
+		}
+		startIdx := endIdx - middleHeight
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		visual = allVisual[startIdx:endIdx]
+	}
+
+	// Pad top with blank lines so content hugs the separator.
+	if pad := middleHeight - len(visual); pad > 0 {
 		visual = append(make([]string, pad), visual...)
 	}
 
-	parts := []string{strings.Join(visual, "\n"), separator}
+	// Scroll indicator: show "↑ N lines above" when scrolled up.
+	scrollIndicator := ""
+	if m.scrollOffset > 0 {
+		scrollIndicator = styleMuted.Render(fmt.Sprintf("  ↑ %d lines above  (PgUp/PgDn to scroll)", m.scrollOffset))
+		// Replace the last visual line with the indicator so it overlays the content.
+		if len(visual) > 0 {
+			visual[len(visual)-1] = scrollIndicator
+		}
+	}
+	_ = scrollIndicator
+
+	// ── ASSEMBLE ──────────────────────────────────────────────────────
+	var parts []string
+
+	// Header (skipped on tiny terminals).
+	if effectiveHeaderHeight > 0 {
+		headerLines := m.renderHeader()
+		parts = append(parts, strings.Join(headerLines, "\n"))
+	}
+
+	// Middle.
+	parts = append(parts, strings.Join(visual, "\n"))
+
+	// Footer.
+	parts = append(parts, separator)
 	if statusLine != "" {
 		parts = append(parts, statusLine)
 	}
@@ -361,12 +444,14 @@ func (m *SessionModel) View() string {
 	if modelFooter != "" {
 		parts = append(parts, modelFooter)
 	}
+
 	return strings.Join(parts, "\n")
 }
 
 // renderOutputLines word-wraps all output (including the in-progress response
-// buffer) and returns the trailing `cap` visual rows.
-func (m SessionModel) renderOutputLines(cap int) []string {
+// buffer) and returns all visual rows. The caller is responsible for slicing
+// to the desired window size and applying the scroll offset.
+func (m SessionModel) renderOutputLines(_ int) []string {
 	wrapWidth := m.width
 	if wrapWidth < 1 {
 		wrapWidth = 80
@@ -387,11 +472,111 @@ func (m SessionModel) renderOutputLines(cap int) []string {
 			add(styleAssistant.Render("setu  ") + buf)
 		}
 	}
-
-	if len(visual) > cap {
-		visual = visual[len(visual)-cap:]
-	}
 	return visual
+}
+
+// scrollPageSize returns how many lines to scroll per Page Up/Down, based
+// on the current middle area height (minimum 1).
+func (m SessionModel) scrollPageSize() int {
+	ps := m.middleHeight()
+	if ps < 1 {
+		ps = 1
+	}
+	return ps
+}
+
+// middleHeight computes the height of the scrollable message area based on
+// the current terminal dimensions and bottom chrome height.
+func (m SessionModel) middleHeight() int {
+	if m.height == 0 {
+		return 0
+	}
+	// Reserve headerHeight rows at top and chromeHeight rows at bottom.
+	// chromeHeight calculation mirrors View() to stay in sync.
+	separator := strings.Repeat("─", m.width) // just for line counting
+	inputBox := styleInputBox.Width(m.width - 2).Render(stylePrompt.Render("❯ ") + m.input.RenderLine())
+	inputBoxLines := strings.Count(inputBox, "\n") + 1
+	acBlock := m.input.RenderAutocomplete()
+	acLines := 0
+	if acBlock != "" {
+		acLines = strings.Count(acBlock, "\n") + 1
+	}
+	chromeHeight := 1 + inputBoxLines + acLines // separator(1) + inputBox + ac
+	_ = separator
+	if m.status != "" {
+		chromeHeight++
+	}
+	if m.model != "" {
+		chromeHeight++
+	}
+	mid := m.height - headerHeight - chromeHeight
+	if mid < 1 {
+		mid = 1
+	}
+	return mid
+}
+
+// renderHeader returns the fixed 8-line header block containing the ASCII art
+// logo on the left and a welcome message on the right.
+func (m SessionModel) renderHeader() []string {
+	if m.width < 1 {
+		return make([]string, headerHeight)
+	}
+
+	// ASCII art logo (6 lines tall).
+	art := []string{
+		styleHeaderArt.Render("  ╭─────────╮"),
+		styleHeaderArt.Render("  │ MCP-SETU│"),
+		styleHeaderArt.Render("  │  ◆ ◆ ◆  │"),
+		styleHeaderArt.Render("  ╰─────────╯"),
+	}
+
+	// Welcome message lines (right side).
+	servers := ui.GetServersTableInfo(m.mcpClient)
+	serverCount := len(servers)
+	toolCount := len(m.mcpClient.GetAllTools())
+	welcome := []string{
+		styleHeaderWelcome.Render("Welcome to mcp-setu"),
+		styleHeaderMuted.Render("Model:   " + m.model),
+		styleHeaderMuted.Render(fmt.Sprintf("Servers: %d connected · %d tools", serverCount, toolCount)),
+		styleHeaderMuted.Render("↑/↓ history · PgUp/PgDn scroll · /help"),
+	}
+
+	// Build 8 lines. Combine art (4 lines) with welcome (4 lines).
+	// Lines 0-3: art on left, welcome on right (placed side by side).
+	// Lines 4-5: blank.
+	// Lines 6-7: separator.
+	var lines []string
+	maxRows := 4 // art and welcome both have 4 lines
+	for i := 0; i < maxRows; i++ {
+		left := ""
+		if i < len(art) {
+			left = art[i]
+		}
+		right := ""
+		if i < len(welcome) {
+			right = welcome[i]
+		}
+		// Place left and right within the terminal width.
+		leftWidth := lipgloss.Width(left)
+		rightWidth := lipgloss.Width(right)
+		gap := m.width - leftWidth - rightWidth
+		if gap < 1 {
+			gap = 1
+		}
+		lines = append(lines, left+strings.Repeat(" ", gap)+right)
+	}
+	// Two blank lines.
+	lines = append(lines, "", "")
+	// Separator spanning full width.
+	sep := styleSeparator.Render(strings.Repeat("─", m.width))
+	lines = append(lines, sep, "")
+
+	// Ensure exactly headerHeight lines.
+	for len(lines) < headerHeight {
+		lines = append(lines, "")
+	}
+	return lines[:headerHeight]
 }
 
 // wrapLine breaks a single visual line at terminal width, preserving any
@@ -549,6 +734,40 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 func (m *SessionModel) appendInfo(lines []string) {
 	m.appendOutput(lines...)
 	m.appendOutput("")
+}
+
+// sendCurrentInput reads the current input value and dispatches it as a chat
+// message or slash command. Returns a tea.Cmd to execute (may be nil).
+func (m *SessionModel) sendCurrentInput() tea.Cmd {
+	value := m.input.GetValue()
+	if value == "" {
+		return nil
+	}
+	m.input.AddToHistory(value)
+	m.appendUser(value)
+	m.input.Clear()
+
+	// Handle "/model" (bare, no name) → enter picker.
+	if value == "/model" {
+		m.input.EnterModelSelect()
+		return nil
+	}
+
+	if cmd, handled := m.handleSlashCommand(value); handled {
+		return cmd
+	}
+
+	// Install the TUI printer on the bridge exactly once, just-in-time.
+	if !m.printerWire {
+		m.br.SetPrinter(NewPrinter(m.eventCh, m.verbose))
+		m.printerWire = true
+	}
+
+	m.history = append(m.history, ollama.Message{Role: "user", Content: value})
+	m.processing = true
+	m.processingStart = time.Now()
+	m.status = "⟳ thinking…"
+	return tea.Batch(m.runBridge(value), m.waitForEvent())
 }
 
 // ───────────────────────── async plumbing ─────────────────────────

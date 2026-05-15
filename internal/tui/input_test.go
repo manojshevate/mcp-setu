@@ -407,3 +407,92 @@ func TestInputModelRenderLine(t *testing.T) {
 		t.Error("expected guidance text in RenderLine for picker mode")
 	}
 }
+
+// TestInputModelMultilineEnter verifies that plain Enter inserts a newline.
+func TestInputModelMultilineEnter(t *testing.T) {
+	m := NewInputModel()
+	m.value = "hello"
+	m.cursor = 5
+
+	// Press plain Enter → newline inserted.
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(InputModel)
+
+	// cmd should be nil for a plain newline (not a SendMsg).
+	if cmd != nil {
+		t.Error("expected nil cmd for plain Enter (newline), got non-nil")
+	}
+	if !strings.Contains(m.value, "\n") {
+		t.Errorf("expected newline in value after Enter, got %q", m.value)
+	}
+	if m.LineCount() != 2 {
+		t.Errorf("expected 2 lines after Enter, got %d", m.LineCount())
+	}
+}
+
+// TestInputModelAltEnterSends verifies that Alt+Enter fires a SendMsg.
+func TestInputModelAltEnterSends(t *testing.T) {
+	m := NewInputModel()
+	m.value = "hello"
+	m.cursor = 5
+
+	// Press Alt+Enter → SendMsg.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for Alt+Enter (send)")
+	}
+	msg := cmd()
+	if _, ok := msg.(SendMsg); !ok {
+		t.Errorf("expected SendMsg from Alt+Enter, got %T", msg)
+	}
+}
+
+// TestInputModelLineCount checks LineCount for various values.
+func TestInputModelLineCount(t *testing.T) {
+	cases := []struct {
+		value string
+		want  int
+	}{
+		{"", 1},
+		{"hello", 1},
+		{"hello\nworld", 2},
+		{"a\nb\nc", 3},
+	}
+	for _, tc := range cases {
+		m := InputModel{value: tc.value}
+		if got := m.LineCount(); got != tc.want {
+			t.Errorf("LineCount(%q) = %d, want %d", tc.value, got, tc.want)
+		}
+	}
+}
+
+// TestInputModelMultilineRenderLine verifies the "(N lines)" indicator appears.
+func TestInputModelMultilineRenderLine(t *testing.T) {
+	m := InputModel{value: "line1\nline2\nline3", cursor: 17}
+	line := m.RenderLine()
+	if !strings.Contains(line, "3 lines") {
+		t.Errorf("expected '3 lines' indicator in multiline RenderLine, got %q", line)
+	}
+	if !strings.Contains(line, "line1") {
+		t.Errorf("expected first line 'line1' in RenderLine, got %q", line)
+	}
+}
+
+// TestInputModelGetValuePreservesNewlines ensures internal newlines survive GetValue.
+func TestInputModelGetValuePreservesNewlines(t *testing.T) {
+	m := InputModel{value: "hello\nworld"}
+	v := m.GetValue()
+	if v != "hello\nworld" {
+		t.Errorf("expected GetValue to preserve newlines, got %q", v)
+	}
+}
+
+// TestPluralLines verifies the pluralLines helper.
+func TestPluralLines(t *testing.T) {
+	if got := pluralLines(1); got != "1 line" {
+		t.Errorf("pluralLines(1) = %q, want '1 line'", got)
+	}
+	if got := pluralLines(3); got != "3 lines" {
+		t.Errorf("pluralLines(3) = %q, want '3 lines'", got)
+	}
+}
