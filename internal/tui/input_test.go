@@ -253,8 +253,8 @@ func TestInputModelModelSelect(t *testing.T) {
 	if m.mode != modeNormal {
 		t.Errorf("expected modeNormal after ExitModelSelect, got %d", m.mode)
 	}
-	if m.value != "" {
-		t.Errorf("expected empty value after ExitModelSelect, got %q", m.value)
+	if len(m.valueRunes) != 0 {
+		t.Errorf("expected empty value after ExitModelSelect, got %q", string(m.valueRunes))
 	}
 }
 
@@ -350,7 +350,7 @@ func TestInputModelRenderAutocomplete(t *testing.T) {
 	}
 
 	// Autocomplete mode — overlay contains suggestions.
-	m.value = "/t"
+	m.valueRunes = []rune("/t")
 	m.updateAC()
 	if m.mode != modeAutocomplete {
 		t.Skip("no autocomplete triggered, skipping")
@@ -388,7 +388,7 @@ func TestInputModelRenderLine(t *testing.T) {
 	}
 
 	// Normal mode with value.
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.cursor = 5
 	line = m.RenderLine()
 	if !strings.Contains(line, "hello") {
@@ -411,7 +411,7 @@ func TestInputModelRenderLine(t *testing.T) {
 // TestInputModelMultilineEnter verifies that plain Enter inserts a newline.
 func TestInputModelMultilineEnter(t *testing.T) {
 	m := NewInputModel()
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.cursor = 5
 
 	// Press plain Enter → newline inserted.
@@ -422,8 +422,8 @@ func TestInputModelMultilineEnter(t *testing.T) {
 	if cmd != nil {
 		t.Error("expected nil cmd for plain Enter (newline), got non-nil")
 	}
-	if !strings.Contains(m.value, "\n") {
-		t.Errorf("expected newline in value after Enter, got %q", m.value)
+	if !strings.Contains(string(m.valueRunes), "\n") {
+		t.Errorf("expected newline in value after Enter, got %q", string(m.valueRunes))
 	}
 	if m.LineCount() != 2 {
 		t.Errorf("expected 2 lines after Enter, got %d", m.LineCount())
@@ -433,7 +433,7 @@ func TestInputModelMultilineEnter(t *testing.T) {
 // TestInputModelAltEnterSends verifies that Alt+Enter fires a SendMsg.
 func TestInputModelAltEnterSends(t *testing.T) {
 	m := NewInputModel()
-	m.value = "hello"
+	m.valueRunes = []rune("hello")
 	m.cursor = 5
 
 	// Press Alt+Enter → SendMsg.
@@ -459,7 +459,7 @@ func TestInputModelLineCount(t *testing.T) {
 		{"a\nb\nc", 3},
 	}
 	for _, tc := range cases {
-		m := InputModel{value: tc.value}
+		m := InputModel{valueRunes: []rune(tc.value)}
 		if got := m.LineCount(); got != tc.want {
 			t.Errorf("LineCount(%q) = %d, want %d", tc.value, got, tc.want)
 		}
@@ -468,7 +468,7 @@ func TestInputModelLineCount(t *testing.T) {
 
 // TestInputModelMultilineRenderLine verifies the "(N lines)" indicator appears.
 func TestInputModelMultilineRenderLine(t *testing.T) {
-	m := InputModel{value: "line1\nline2\nline3", cursor: 17}
+	m := InputModel{valueRunes: []rune("line1\nline2\nline3"), cursor: 17}
 	line := m.RenderLine()
 	if !strings.Contains(line, "3 lines") {
 		t.Errorf("expected '3 lines' indicator in multiline RenderLine, got %q", line)
@@ -480,7 +480,7 @@ func TestInputModelMultilineRenderLine(t *testing.T) {
 
 // TestInputModelGetValuePreservesNewlines ensures internal newlines survive GetValue.
 func TestInputModelGetValuePreservesNewlines(t *testing.T) {
-	m := InputModel{value: "hello\nworld"}
+	m := InputModel{valueRunes: []rune("hello\nworld")}
 	v := m.GetValue()
 	if v != "hello\nworld" {
 		t.Errorf("expected GetValue to preserve newlines, got %q", v)
