@@ -104,13 +104,25 @@ func NewSessionModel(
 	return m
 }
 
+// maxOutputLines is the maximum number of logical output lines retained in memory.
+// When exceeded, the oldest lines are discarded using a ring-buffer pattern.
+const maxOutputLines = 2000
+
+// appendOutput appends lines to m.output and trims to maxOutputLines if needed.
+func (m *SessionModel) appendOutput(lines ...string) {
+	m.output = append(m.output, lines...)
+	if len(m.output) > maxOutputLines {
+		m.output = m.output[len(m.output)-maxOutputLines:]
+	}
+}
+
 // appendBanner adds the welcome banner and connected-server list to the output.
 func (m *SessionModel) appendBanner() {
 	servers := ui.GetServersTableInfo(m.mcpClient)
 	serverCount := len(servers)
 	toolCount := len(m.mcpClient.GetAllTools())
 
-	m.output = append(m.output,
+	m.appendOutput(
 		stylePrompt.Render("Welcome to mcp-setu"),
 		"",
 		fmt.Sprintf("  %s  %s", styleMuted.Render("Model    "), m.model),
@@ -118,13 +130,13 @@ func (m *SessionModel) appendBanner() {
 		"",
 	)
 	if serverCount > 0 {
-		m.output = append(m.output, styleMuted.Render("  Servers:"))
+		m.appendOutput(styleMuted.Render("  Servers:"))
 		for _, s := range servers {
-			m.output = append(m.output, fmt.Sprintf("    • %s (%d tools)", s.Name, s.Tools))
+			m.appendOutput(fmt.Sprintf("    • %s (%d tools)", s.Name, s.Tools))
 		}
-		m.output = append(m.output, "")
+		m.appendOutput("")
 	}
-	m.output = append(m.output,
+	m.appendOutput(
 		styleMuted.Render("  Type /help for commands, /quit to exit. ↑/↓ for history."),
 		strings.Repeat("─", 40),
 	)
@@ -168,7 +180,7 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case modelsLoadedMsg:
 		if msg.err != nil {
 			// Log the error but don't block; the app is still usable.
-			m.output = append(m.output, styleMuted.Render("  (warning: could not fetch models: "+msg.err.Error()+")"))
+			m.appendOutput(styleMuted.Render("  (warning: could not fetch models: " + msg.err.Error() + ")"))
 		}
 		m.input.SetModels(msg.names)
 		return m, nil
@@ -412,9 +424,9 @@ func wrapLine(s string, width int) []string {
 func (m *SessionModel) handleEvent(ev Event) {
 	switch ev.Kind {
 	case EventLog:
-		m.output = append(m.output, styleMuted.Render("  "+ev.Text))
+		m.appendOutput(styleMuted.Render("  " + ev.Text))
 	case EventWarning:
-		m.output = append(m.output, styleWarning.Render("⚠ "+ev.Text))
+		m.appendOutput(styleWarning.Render("⚠ " + ev.Text))
 	case EventError:
 		m.appendError(ev.Text)
 	case EventRespStart:
@@ -436,7 +448,7 @@ func (m *SessionModel) handleEvent(ev Event) {
 
 func (m *SessionModel) appendUser(text string) {
 	prefix := styleUser.Render("you   ")
-	m.output = append(m.output, prefix+text)
+	m.appendOutput(prefix + text)
 }
 
 func (m *SessionModel) appendAssistant(text string) {
@@ -445,16 +457,16 @@ func (m *SessionModel) appendAssistant(text string) {
 	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
 	for i, line := range lines {
 		if i == 0 {
-			m.output = append(m.output, prefix+line)
+			m.appendOutput(prefix + line)
 		} else {
-			m.output = append(m.output, "      "+line)
+			m.appendOutput("      " + line)
 		}
 	}
-	m.output = append(m.output, "")
+	m.appendOutput("")
 }
 
 func (m *SessionModel) appendError(msg string) {
-	m.output = append(m.output, styleError.Render("error: ")+msg)
+	m.appendOutput(styleError.Render("error: ") + msg)
 }
 
 // ───────────────────────── commands ─────────────────────────
