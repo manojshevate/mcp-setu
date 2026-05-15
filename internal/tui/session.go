@@ -718,7 +718,7 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 			"",
 			"Key Bindings:",
 			"  Enter           Send message",
-			"  Alt+Enter       Insert newline (multiline mode)",
+			"  Shift+Enter     Insert newline (multiline mode)",
 			"  Page Up/Down    Scroll message history",
 			"  Left/Right/Home/End  Navigate in input",
 			"  Ctrl+C          Exit",

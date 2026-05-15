@@ -69,19 +69,10 @@ Key components:
 #### Multiline Input
 
 - `Enter`: Send the message
-- `Alt+Enter` (Option+Enter on macOS): Insert a newline for multiline input
-- When input contains multiple lines, `RenderLine()` shows the first line plus a `(N lines · alt+enter to send)` indicator
+- `Shift+Enter`: Insert a newline for multiline input (works on all platforms)
+- When input contains multiple lines, `RenderLine()` shows the first line plus a `(N lines · shift+enter for newline)` indicator
 - `LineCount()` method returns the number of lines in the current value
-
-#### macOS Terminal Setup
-
-To use Option+Enter for multiline input, you must enable Alt/Option key support in your terminal:
-
-**Terminal.app:** Terminal → Settings → Profiles → Keyboard → Enable "Use Option as Meta Key"
-
-**iTerm2:** iTerm2 → Preferences → Profiles → Keys → Left/Right Option Key → Set to "Esc+"
-
-**Page Up/Down on laptops:** Use Fn+Up Arrow (Page Up) or Fn+Down Arrow (Page Down) to scroll message history.
+- Implementation note: bubbletea v1.3.10 `KeyMsg` has no `Shift` field; the modifier is detected via `msg.Alt` (`tea.KeyEnter` + `Alt: true`) which is the reliable cross-platform escape sequence
 
 #### TUI Layout (Header / Middle / Footer)
 

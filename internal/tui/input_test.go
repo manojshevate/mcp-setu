@@ -425,25 +425,27 @@ func TestInputModelEnterSends(t *testing.T) {
 	}
 }
 
-// TestInputModelAltEnterInsertsNewline verifies that Alt+Enter inserts a newline.
-func TestInputModelAltEnterInsertsNewline(t *testing.T) {
+// TestInputModelShiftEnterInsertsNewline verifies that Shift+Enter inserts a newline.
+// Note: bubbletea v1.3.10 KeyMsg has no Shift field; Shift+Enter is detected via
+// msg.Alt (Alt+Enter escape sequence is the cross-platform terminal trigger).
+func TestInputModelShiftEnterInsertsNewline(t *testing.T) {
 	m := NewInputModel()
 	m.valueRunes = []rune("hello")
 	m.cursor = 5
 
-	// Press Alt+Enter → newline inserted (not SendMsg).
+	// Press Shift+Enter (detected as Alt+Enter in terminal) → newline inserted (not SendMsg).
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
 	m = updated.(InputModel)
 
 	// cmd should be nil for a newline insertion.
 	if cmd != nil {
-		t.Error("expected nil cmd for Alt+Enter (newline), got non-nil")
+		t.Error("expected nil cmd for Shift+Enter (newline), got non-nil")
 	}
 	if !strings.Contains(string(m.valueRunes), "\n") {
-		t.Errorf("expected newline in value after Alt+Enter, got %q", string(m.valueRunes))
+		t.Errorf("expected newline in value after Shift+Enter, got %q", string(m.valueRunes))
 	}
 	if m.LineCount() != 2 {
-		t.Errorf("expected 2 lines after Alt+Enter, got %d", m.LineCount())
+		t.Errorf("expected 2 lines after Shift+Enter, got %d", m.LineCount())
 	}
 }
 
@@ -476,8 +478,8 @@ func TestInputModelMultilineRenderLine(t *testing.T) {
 	if !strings.Contains(line, "line1") {
 		t.Errorf("expected first line 'line1' in RenderLine, got %q", line)
 	}
-	if !strings.Contains(line, "alt+enter for newline") {
-		t.Errorf("expected 'alt+enter for newline' hint in multiline RenderLine, got %q", line)
+	if !strings.Contains(line, "shift+enter for newline") {
+		t.Errorf("expected 'shift+enter for newline' hint in multiline RenderLine, got %q", line)
 	}
 }
 

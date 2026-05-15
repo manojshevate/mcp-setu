@@ -279,7 +279,7 @@ func TestSessionMultilineInput(t *testing.T) {
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m = mUpdated.(*SessionModel)
 
-	// Type "line1", press Alt+Enter (multiline), type "line2".
+	// Type "line1", press Shift+Enter (detected as Alt+Enter in terminal) to insert newline, type "line2".
 	for _, r := range "line1" {
 		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = mu.(*SessionModel)

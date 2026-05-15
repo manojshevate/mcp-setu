@@ -100,13 +100,15 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			// Plain Enter sends the message (default chat behaviour).
-			// Alt+Enter (Option+Enter on macOS) inserts a newline for multiline input.
+			// Shift+Enter inserts a newline for multiline input. In bubbletea v1.3.10
+			// KeyMsg has no Shift field; the modifier is detected via msg.Alt because
+			// most terminals send Alt+Enter escape sequences for Shift+Enter.
 			// In model picker mode this case is never reached because session.go
 			// handles tea.KeyEnter directly before delegating to InputModel.Update.
 			if m.mode == modeModelSelect {
 				// Guard: shouldn't happen, but be safe.
 			} else if msg.Alt {
-				// Alt+Enter → insert newline for multiline input.
+				// Shift+Enter → insert newline for multiline input.
 				if m.cursor < 0 || m.cursor > len(m.valueRunes) {
 					m.cursor = len(m.valueRunes)
 				}
@@ -285,7 +287,7 @@ func (m InputModel) RenderLine() string {
 
 	if len(m.valueRunes) == 0 {
 		// Empty input: show cursor at start with placeholder.
-		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · alt+enter for newline")
+		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · shift+enter for newline")
 		return cursorBlock + hint
 	}
 
@@ -306,7 +308,7 @@ func (m InputModel) RenderLine() string {
 		return before + cursorBlock + after
 	}
 
-	// Multiline: show only the first line and a "(N lines · alt+enter to send)" hint.
+	// Multiline: show only the first line and a "(N lines · shift+enter for newline)" hint.
 	// Find the first newline in rune space.
 	firstLineEnd := len(m.valueRunes)
 	for i, r := range m.valueRunes {
@@ -317,7 +319,7 @@ func (m InputModel) RenderLine() string {
 	}
 	firstLineRunes := m.valueRunes[:firstLineEnd]
 	indicator := lipgloss.NewStyle().Faint(true).Render(
-		fmt.Sprintf(" (%s · alt+enter for newline)", pluralLines(lineCount)),
+		fmt.Sprintf(" (%s · shift+enter for newline)", pluralLines(lineCount)),
 	)
 
 	// Render cursor within the first line if it falls there, otherwise at the end.
@@ -351,7 +353,7 @@ func (m InputModel) RenderAllLines(maxVisible int) []string {
 	cursorBlock := lipgloss.NewStyle().Background(lipgloss.Color("240")).Render(" ")
 
 	if len(m.valueRunes) == 0 {
-		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · alt+enter for newline")
+		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · shift+enter for newline")
 		return []string{cursorBlock + hint}
 	}
 
