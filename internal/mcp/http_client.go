@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -80,7 +81,10 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 		Method:  "notifications/initialized",
 		Params:  map[string]any{},
 	}
-	notifData, _ := json.Marshal(notif)
+	notifData, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
 	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
 	if err != nil {
 		return fmt.Errorf("failed to create initialized notification request: %w", err)
@@ -114,7 +118,11 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 			for _, t := range toolsSlice {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
-					toolJSON, _ := json.Marshal(toolMap)
+					toolJSON, err := json.Marshal(toolMap)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to marshal tool definition: %v\n", err)
+						continue
+					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
 						continue
 					}
@@ -183,11 +191,17 @@ func (c *HTTPStreamableClient) sendRequest(ctx context.Context, method string, p
 
 	// Marshal params to map.
 	if params != nil {
-		paramJSON, _ := json.Marshal(params)
+		paramJSON, err := json.Marshal(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request params: %w", err)
+		}
 		_ = json.Unmarshal(paramJSON, &req.Params)
 	}
 
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(reqData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
@@ -333,7 +347,10 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 		Method:  "notifications/initialized",
 		Params:  map[string]any{},
 	}
-	notifData, _ := json.Marshal(notif)
+	notifData, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
 	req, err := http.NewRequest("POST", c.url, bytes.NewReader(notifData))
 	if err != nil {
 		return fmt.Errorf("failed to create initialized notification request: %w", err)
@@ -367,7 +384,11 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 			for _, t := range toolsSlice {
 				if toolMap, ok := t.(map[string]any); ok {
 					var tool Tool
-					toolJSON, _ := json.Marshal(toolMap)
+					toolJSON, err := json.Marshal(toolMap)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to marshal tool definition: %v\n", err)
+						continue
+					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
 						continue
 					}
@@ -435,11 +456,17 @@ func (c *HTTPSSEClient) sendRequest(ctx context.Context, method string, params a
 
 	// Marshal params to map.
 	if params != nil {
-		paramJSON, _ := json.Marshal(params)
+		paramJSON, err := json.Marshal(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request params: %w", err)
+		}
 		_ = json.Unmarshal(paramJSON, &req.Params)
 	}
 
-	reqData, _ := json.Marshal(req)
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(reqData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)

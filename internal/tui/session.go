@@ -547,10 +547,8 @@ func (m *SessionModel) handleSlashCommand(input string) (tea.Cmd, bool) {
 }
 
 func (m *SessionModel) appendInfo(lines []string) {
-	for _, line := range lines {
-		m.output = append(m.output, line)
-	}
-	m.output = append(m.output, "")
+	m.appendOutput(lines...)
+	m.appendOutput("")
 }
 
 // ───────────────────────── async plumbing ─────────────────────────

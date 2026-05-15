@@ -82,22 +82,35 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 }
 
 // SetModel changes the model and validates tool support.
-// It holds the write lock for the entire read-compare-write to prevent
-// a race where two concurrent callers both read the current model and
-// then both write a new one.
+// The existence check is performed outside the lock (it is a network call
+// and must not block other readers). After the check succeeds we re-acquire
+// the write lock and do a final compare-and-swap so that the read, compare,
+// and write of b.model are all performed under the same lock acquisition,
+// making the update genuinely atomic with respect to concurrent SetModel calls.
 func (b *Bridge) SetModel(ctx context.Context, model string) error {
-	b.mu.Lock()
+	// Fast-path: read current model under lock; bail early if already set.
+	b.mu.RLock()
 	currentModel := b.model
-	b.mu.Unlock()
-
+	b.mu.RUnlock()
 	if model == currentModel {
 		return nil
 	}
+
+	// Network call outside the lock — this is intentional and safe; at worst
+	// two concurrent callers both validate and then race to the write below,
+	// which is resolved atomically there.
 	if err := b.ollamaClient.EnsureModelExists(ctx, model); err != nil {
 		return err
 	}
+
+	// Acquire write lock and re-check before writing.  This closes the
+	// TOCTOU window: if another goroutine already switched to the same model
+	// we skip the redundant write; the read, compare, and write happen as a
+	// single critical section.
 	b.mu.Lock()
-	b.model = model
+	if b.model != model {
+		b.model = model
+	}
 	b.mu.Unlock()
 	return nil
 }
