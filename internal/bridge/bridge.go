@@ -45,27 +45,27 @@ type MCPClient interface {
 
 // Stats tracks performance metrics for a session.
 type Stats struct {
-	MessageCount      int           // Total messages sent
-	ToolCallCount     int           // Total tool calls made
-	TotalDuration     time.Duration // Total time spent processing
-	IterationCount    int           // Total iterations across all messages
-	LastResponseTime  time.Duration // Last message response time
-	AverageLoopTime   time.Duration // Average time per iteration
+	MessageCount     int           // Total messages sent
+	ToolCallCount    int           // Total tool calls made
+	TotalDuration    time.Duration // Total time spent processing
+	IterationCount   int           // Total iterations across all messages
+	LastResponseTime time.Duration // Last message response time
+	AverageLoopTime  time.Duration // Average time per iteration
 }
 
 // Bridge orchestrates the agentic loop between Ollama and MCP servers.
 // It maintains the conversation state and coordinates tool calls between the
 // language model and MCP-connected tools, with a safety limit of 20 iterations.
 type Bridge struct {
-	ollamaClient   OllamaClient
-	mcpClient      MCPClient
-	model          string
-	temperature    float64
-	contextLength  int
-	printer        Printer
-	stats          Stats
-	startTime      time.Time
-	mu             sync.RWMutex // protects model and stats
+	ollamaClient  OllamaClient
+	mcpClient     MCPClient
+	model         string
+	temperature   float64
+	contextLength int
+	printer       Printer
+	stats         Stats
+	startTime     time.Time
+	mu            sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
@@ -82,10 +82,13 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 }
 
 // SetModel changes the model and validates tool support.
+// It holds the write lock for the entire read-compare-write to prevent
+// a race where two concurrent callers both read the current model and
+// then both write a new one.
 func (b *Bridge) SetModel(ctx context.Context, model string) error {
-	b.mu.RLock()
+	b.mu.Lock()
 	currentModel := b.model
-	b.mu.RUnlock()
+	b.mu.Unlock()
 
 	if model == currentModel {
 		return nil
@@ -125,7 +128,11 @@ func (b *Bridge) SetPrinter(p Printer) {
 }
 
 // ProcessMessage runs the agentic loop for a user message.
+// A 5-minute timeout is applied to prevent indefinite hangs if the Ollama API stalls.
 func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	start := time.Now()
 
 	// Build tools list for Ollama.
