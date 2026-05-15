@@ -406,7 +406,6 @@ func (m *SessionModel) View() string {
 			visual[len(visual)-1] = scrollIndicator
 		}
 	}
-	_ = scrollIndicator
 
 	// ── ASSEMBLE ──────────────────────────────────────────────────────
 	var parts []string

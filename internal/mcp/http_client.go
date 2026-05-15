@@ -124,6 +124,7 @@ func (c *HTTPStreamableClient) initialize(ctx context.Context) error {
 						continue
 					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to unmarshal tool definition: %v\n", err)
 						continue
 					}
 					c.tools[tool.Name] = &tool
@@ -392,6 +393,7 @@ func (c *HTTPSSEClient) initialize(ctx context.Context) error {
 						continue
 					}
 					if err := json.Unmarshal(toolJSON, &tool); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: failed to unmarshal tool definition: %v\n", err)
 						continue
 					}
 					c.tools[tool.Name] = &tool
