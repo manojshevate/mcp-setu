@@ -29,7 +29,7 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make install"
-	@echo "  2. ollama pull gemma2:latest"
+	@echo "  2. ollama pull llama3.2:3b"
 	@echo "  3. mcp-setu chat"
 	@echo ""
 	@echo "Documentation quick start:"

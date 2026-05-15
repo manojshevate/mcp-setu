@@ -66,6 +66,23 @@ Key components:
 - Typing while in picker: Exits picker and starts fresh text entry
 - Up/Down arrows: Navigate history in normal mode, navigate options in picker/autocomplete
 
+#### Multiline Input
+
+- `Enter`: Insert a newline into the input (multiline mode)
+- `Alt+Enter` (Option+Enter on macOS): Send the message
+- When input contains multiple lines, `RenderLine()` shows the first line plus a `(N lines · alt+enter to send)` indicator
+- `LineCount()` method returns the number of lines in the current value
+
+#### TUI Layout (Header / Middle / Footer)
+
+The screen is divided into three sections:
+1. **Header** (`headerHeight = 8` lines): ASCII art logo (`╭─────────╮ │ MCP-SETU│ …`) on the left, welcome/server info on the right. Suppressed on very small terminals.
+2. **Middle** (variable height): Scrollable message area. PgUp/PgDn scrolls; Home/End jumps to top/bottom. Scroll indicator `↑ N lines above` appears when scrolled.
+3. **Footer**: Separator + optional status + optional autocomplete + input box + model badge.
+- `scrollOffset int` on SessionModel tracks how many lines are scrolled up from the bottom (0 = tail).
+- `renderHeader()` builds the header string slice (exactly `headerHeight` lines).
+- `scrollPageSize()` / `middleHeight()` helpers coordinate scroll step size.
+
 #### Processing Status
 
 - While LLM processes a request, elapsed time displays above input: `⟳ thinking… 2s`, `⟳ thinking… 1m 30s`
