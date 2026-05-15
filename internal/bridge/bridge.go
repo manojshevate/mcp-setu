@@ -156,7 +156,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	start := time.Now()
 
 	// Log user message (last message in history before processing).
-	if len(messages) > 0 {
+	if b.logger != nil && len(messages) > 0 {
 		lastMsg := messages[len(messages)-1]
 		if lastMsg.Role == "user" {
 			b.logger.LogUserMessage(lastMsg.Content)
@@ -209,7 +209,9 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			b.stats.IterationCount += iteration
 			b.stats.LastResponseTime = duration
 			b.mu.Unlock()
-			b.logger.LogLLMResponse(resp.Content)
+			if b.logger != nil {
+				b.logger.LogLLMResponse(resp.Content)
+			}
 			return resp.Content, nil
 		}
 
@@ -303,7 +305,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 	}
 
 	// Log response with tool calls if present
-	if len(allToolCalls) > 0 && fullContent.Len() > 0 {
+	if b.logger != nil && len(allToolCalls) > 0 && fullContent.Len() > 0 {
 		b.logger.LogInfo(fmt.Sprintf("LLM response with %d tool calls: %s", len(allToolCalls), fullContent.String()))
 	}
 
@@ -334,7 +336,9 @@ func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCa
 			toolName, toolArgs := toolCall.NormalizeToolCall()
 
 			b.printer.PrintToolCall(toolName, toolArgs)
-			b.logger.LogToolCall(toolName, toolArgs)
+			if b.logger != nil {
+				b.logger.LogToolCall(toolName, toolArgs)
+			}
 
 			result, err := b.mcpClient.CallTool(ctx, toolName, toolArgs)
 			success := err == nil
@@ -344,7 +348,9 @@ func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCa
 			}
 
 			b.printer.PrintToolResult(toolName, result, len(result) > 120)
-			b.logger.LogToolResult(toolName, result, success)
+			if b.logger != nil {
+				b.logger.LogToolResult(toolName, result, success)
+			}
 			results[index] = result
 		}(i, call)
 	}

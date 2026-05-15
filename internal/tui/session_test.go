@@ -16,7 +16,7 @@ import (
 func newTestSession(t *testing.T) *SessionModel {
 	t.Helper()
 	mcpClient := mcp.NewMultiClient()
-	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, 4096, nil, &logger.Logger{Enabled: false})
+	br := bridge.NewBridge(nil, mcpClient, "test-model", 0.7, 4096, nil, logger.NewDisabledLogger())
 	m := NewSessionModel(context.Background(), br, mcpClient, nil, "test-model", "system prompt", false)
 	return &m
 }

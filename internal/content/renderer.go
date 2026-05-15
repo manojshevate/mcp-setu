@@ -143,15 +143,28 @@ func formatTable(headers []string, rows [][]string) string {
 		return ""
 	}
 
-	// Calculate column widths
+	// Calculate column widths with max of 30 chars per cell
+	const maxCellWidth = 30
 	widths := make([]int, len(headers))
 	for i, h := range headers {
-		widths[i] = len(h)
+		widths[i] = minInt(len(h), maxCellWidth)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
-			if i < len(widths) && len(cell) > widths[i] {
-				widths[i] = len(cell)
+			if i < len(widths) {
+				width := minInt(len(cell), maxCellWidth)
+				if width > widths[i] {
+					widths[i] = width
+				}
+			}
+		}
+	}
+
+	// Truncate cells that are longer than max width
+	for i := range rows {
+		for j := range rows[i] {
+			if len(rows[i][j]) > maxCellWidth {
+				rows[i][j] = rows[i][j][:maxCellWidth-3] + "…"
 			}
 		}
 	}
@@ -221,4 +234,12 @@ func (r *Renderer) RenderRawJSON(data []byte) string {
 	}
 	pretty, _ := json.MarshalIndent(obj, "", "  ")
 	return string(pretty)
+}
+
+// minInt returns the minimum of two integers
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -9,7 +9,7 @@ import (
 )
 
 type Logger struct {
-	Enabled   bool // Exported for testing
+	enabled   bool // unexported
 	sessionID string
 	logPath   string
 	file      *os.File
@@ -20,7 +20,7 @@ type Logger struct {
 // If enabled is false, logging is disabled but the logger is still functional (no-op).
 func New(enabled bool) (*Logger, error) {
 	if !enabled {
-		return &Logger{Enabled: false}, nil
+		return &Logger{enabled: false}, nil
 	}
 
 	sessionID := generateSessionID()
@@ -41,7 +41,7 @@ func New(enabled bool) (*Logger, error) {
 	}
 
 	return &Logger{
-		Enabled:   true,
+		enabled:   true,
 		sessionID: sessionID,
 		logPath:   logPath,
 		file:      file,
@@ -50,7 +50,7 @@ func New(enabled bool) (*Logger, error) {
 
 // LogUserMessage logs a user message with timestamp.
 func (l *Logger) LogUserMessage(content string) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	l.write("USER_MESSAGE", content)
@@ -58,7 +58,7 @@ func (l *Logger) LogUserMessage(content string) {
 
 // LogLLMResponse logs the LLM response with timestamp.
 func (l *Logger) LogLLMResponse(content string) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	l.write("LLM_RESPONSE", content)
@@ -66,7 +66,7 @@ func (l *Logger) LogLLMResponse(content string) {
 
 // LogToolCall logs a tool call request with arguments.
 func (l *Logger) LogToolCall(name string, args map[string]any) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	argsStr := fmt.Sprintf("%v", args)
@@ -75,7 +75,7 @@ func (l *Logger) LogToolCall(name string, args map[string]any) {
 
 // LogToolResult logs a tool execution result.
 func (l *Logger) LogToolResult(name string, result string, success bool) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	status := "success"
@@ -87,7 +87,7 @@ func (l *Logger) LogToolResult(name string, result string, success bool) {
 
 // LogError logs an error message.
 func (l *Logger) LogError(msg string) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	l.write("ERROR", msg)
@@ -95,7 +95,7 @@ func (l *Logger) LogError(msg string) {
 
 // LogInfo logs an informational message.
 func (l *Logger) LogInfo(msg string) {
-	if !l.Enabled {
+	if !l.enabled {
 		return
 	}
 	l.write("INFO", msg)
@@ -108,7 +108,7 @@ func (l *Logger) SessionID() string {
 
 // Close closes the log file.
 func (l *Logger) Close() error {
-	if !l.Enabled || l.file == nil {
+	if !l.enabled || l.file == nil {
 		return nil
 	}
 	l.mu.Lock()
@@ -128,6 +128,11 @@ func (l *Logger) write(level string, msg string) {
 		// Silent fail — don't let logging errors break the app
 		_ = err
 	}
+}
+
+// NewDisabledLogger creates a logger with logging disabled (for testing).
+func NewDisabledLogger() *Logger {
+	return &Logger{enabled: false}
 }
 
 // generateSessionID generates a random session ID (timestamp + random suffix).

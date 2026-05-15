@@ -2,6 +2,7 @@ package content
 
 import (
 	"encoding/json"
+	"strings"
 )
 
 // ContentType represents the type of structured content
@@ -62,12 +63,13 @@ func IsStructuredContent(text string) bool {
 	if len(text) < 10 {
 		return false
 	}
-	// Check if starts with { and contains "type" field
-	if text[0] != '{' {
+	// Trim whitespace before checking
+	trimmed := strings.TrimSpace(text)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return false
 	}
 	var m map[string]interface{}
-	err := json.Unmarshal([]byte(text), &m)
+	err := json.Unmarshal([]byte(trimmed), &m)
 	if err != nil {
 		return false
 	}
