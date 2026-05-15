@@ -11,9 +11,9 @@ import (
 
 // MockOllamaClient implements a mock Ollama client for testing.
 type MockOllamaClient struct {
-	responses  []ollama.Message
-	callCount  int
-	maxCalls   int
+	responses []ollama.Message
+	callCount int
+	maxCalls  int
 }
 
 // NewMockOllamaClient creates a new mock Ollama client.

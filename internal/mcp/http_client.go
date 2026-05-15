@@ -19,13 +19,13 @@ import (
 // This is the modern MCP transport standard for remote servers.
 // Supports Bearer token authentication as per MCP specification.
 type HTTPStreamableClient struct {
-	name           string
-	url            string
-	httpClient     *http.Client
-	tokenProvider  TokenProvider
-	tools          map[string]*Tool
-	mu             sync.Mutex
-	nextID         int
+	name          string
+	url           string
+	httpClient    *http.Client
+	tokenProvider TokenProvider
+	tools         map[string]*Tool
+	mu            sync.Mutex
+	nextID        int
 }
 
 // NewHTTPStreamableClient creates a new HTTP Streamable client with optional authentication.
@@ -41,8 +41,8 @@ func NewHTTPStreamableClient(ctx context.Context, name string, url string, token
 			Timeout: 30 * time.Second,
 		},
 		tokenProvider: tokenProvider,
-		tools:  make(map[string]*Tool),
-		nextID: 1,
+		tools:         make(map[string]*Tool),
+		nextID:        1,
 	}
 
 	// Initialize the server
@@ -271,14 +271,14 @@ func (c *HTTPStreamableClient) Close() error {
 // This transport is deprecated in favor of HTTP Streamable but still supported for compatibility.
 // Supports Bearer token authentication as per MCP specification.
 type HTTPSSEClient struct {
-	name           string
-	url            string
-	httpClient     *http.Client
-	tokenProvider  TokenProvider
-	tools          map[string]*Tool
-	mu             sync.Mutex
-	nextID         int
-	lastEventID    string
+	name          string
+	url           string
+	httpClient    *http.Client
+	tokenProvider TokenProvider
+	tools         map[string]*Tool
+	mu            sync.Mutex
+	nextID        int
+	lastEventID   string
 }
 
 // NewHTTPSSEClient creates a new HTTP/SSE client with optional authentication.
@@ -294,8 +294,8 @@ func NewHTTPSSEClient(ctx context.Context, name string, url string, tokenProvide
 			Timeout: 30 * time.Second,
 		},
 		tokenProvider: tokenProvider,
-		tools:  make(map[string]*Tool),
-		nextID: 1,
+		tools:         make(map[string]*Tool),
+		nextID:        1,
 	}
 
 	// Initialize the server

@@ -18,7 +18,7 @@ const DefaultTimeout = 300 * time.Second
 
 // Config represents the mcp-setu configuration file.
 type Config struct {
-	Ollama    OllamaConfig            `json:"ollama"`
+	Ollama     OllamaConfig            `json:"ollama"`
 	MCPServers map[string]ServerConfig `json:"mcpServers"`
 }
 

@@ -9,52 +9,52 @@ import (
 
 func TestInputModelView(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    string
-		width    int
-		cursor   int
+		name           string
+		value          string
+		width          int
+		cursor         int
 		shouldNotPanic bool
 	}{
 		{
-			name:     "empty input",
-			value:    "",
-			width:    80,
-			cursor:   0,
+			name:           "empty input",
+			value:          "",
+			width:          80,
+			cursor:         0,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "short input",
-			value:    "hello",
-			width:    80,
-			cursor:   5,
+			name:           "short input",
+			value:          "hello",
+			width:          80,
+			cursor:         5,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "long input with large width",
-			value:    "this is a very long input that should fit in the terminal",
-			width:    200,
-			cursor:   20,
+			name:           "long input with large width",
+			value:          "this is a very long input that should fit in the terminal",
+			width:          200,
+			cursor:         20,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "long input with small width",
-			value:    "this is a very long input that does not fit in the terminal",
-			width:    10,
-			cursor:   30,
+			name:           "long input with small width",
+			value:          "this is a very long input that does not fit in the terminal",
+			width:          10,
+			cursor:         30,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "very small width",
-			value:    "hello",
-			width:    1,
-			cursor:   3,
+			name:           "very small width",
+			value:          "hello",
+			width:          1,
+			cursor:         3,
 			shouldNotPanic: true,
 		},
 		{
-			name:     "zero width",
-			value:    "hello",
-			width:    0,
-			cursor:   2,
+			name:           "zero width",
+			value:          "hello",
+			width:          0,
+			cursor:         2,
 			shouldNotPanic: true,
 		},
 	}
@@ -315,8 +315,8 @@ func TestGetMatchingModels(t *testing.T) {
 	models := []string{"llama3", "llama2", "mistral", "phi3"}
 
 	tests := []struct {
-		prefix   string
-		wantLen  int
+		prefix  string
+		wantLen int
 	}{
 		{"", 4},
 		{"ll", 2},

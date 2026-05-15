@@ -2,11 +2,11 @@ package ollama
 
 // ChatRequest represents a request to the Ollama /api/chat endpoint.
 type ChatRequest struct {
-	Model    string       `json:"model"`
-	Messages []Message    `json:"messages"`
-	Tools    []Tool       `json:"tools,omitempty"`
-	Options  *Options     `json:"options,omitempty"`
-	Stream   bool         `json:"stream"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+	Tools    []Tool    `json:"tools,omitempty"`
+	Options  *Options  `json:"options,omitempty"`
+	Stream   bool      `json:"stream"`
 }
 
 // Options represents sampling options for Ollama /api/chat endpoint.
@@ -17,17 +17,17 @@ type Options struct {
 
 // Message represents a single message in the conversation.
 type Message struct {
-	Role      string         `json:"role"`
-	Content   string         `json:"content,omitempty"`
-	Thinking  string         `json:"thinking,omitempty"`
-	ToolCalls []ToolCall     `json:"tool_calls,omitempty"`
+	Role      string     `json:"role"`
+	Content   string     `json:"content,omitempty"`
+	Thinking  string     `json:"thinking,omitempty"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ToolCall represents a tool call in a message.
 type ToolCall struct {
-	ID       string       `json:"id,omitempty"`
-	Name     string       `json:"name"`
-	Function *FunctionCall `json:"function,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	Name      string         `json:"name"`
+	Function  *FunctionCall  `json:"function,omitempty"`
 	Arguments map[string]any `json:"arguments,omitempty"`
 }
 
@@ -53,10 +53,10 @@ type Function struct {
 
 // ChatResponse represents a response from the Ollama /api/chat endpoint.
 type ChatResponse struct {
-	Model     string    `json:"model"`
-	CreatedAt string    `json:"created_at"`
-	Message   Message   `json:"message"`
-	Done      bool      `json:"done"`
+	Model     string  `json:"model"`
+	CreatedAt string  `json:"created_at"`
+	Message   Message `json:"message"`
+	Done      bool    `json:"done"`
 }
 
 // ModelInfo represents metadata about a local Ollama model.
