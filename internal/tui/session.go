@@ -125,30 +125,12 @@ func (m *SessionModel) appendOutput(lines ...string) {
 	}
 }
 
-// appendBanner adds the welcome banner and connected-server list to the output.
+// appendBanner previously added the welcome banner to the output area, but the
+// welcome message is now shown exclusively in the header (renderHeader). This
+// function is intentionally left empty so that callers (NewSessionModel, /clear)
+// do not need further changes.
 func (m *SessionModel) appendBanner() {
-	servers := ui.GetServersTableInfo(m.mcpClient)
-	serverCount := len(servers)
-	toolCount := len(m.mcpClient.GetAllTools())
-
-	m.appendOutput(
-		stylePrompt.Render("Welcome to mcp-setu"),
-		"",
-		fmt.Sprintf("  %s  %s", styleMuted.Render("Model    "), m.model),
-		fmt.Sprintf("  %s  %d connected · %d tools", styleMuted.Render("Servers  "), serverCount, toolCount),
-		"",
-	)
-	if serverCount > 0 {
-		m.appendOutput(styleMuted.Render("  Servers:"))
-		for _, s := range servers {
-			m.appendOutput(fmt.Sprintf("    • %s (%d tools)", s.Name, s.Tools))
-		}
-		m.appendOutput("")
-	}
-	m.appendOutput(
-		styleMuted.Render("  Type /help for commands, /quit to exit. ↑/↓ for history."),
-		strings.Repeat("─", 40),
-	)
+	// Welcome info is displayed in the header only — no duplicate here.
 }
 
 // Init fires the event-poller and eagerly fetches the local model list so
@@ -254,7 +236,7 @@ func (m *SessionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// In all other modes, delegate to InputModel which inserts a newline.
+			// In all other modes, delegate to InputModel which fires SendMsg.
 			updated, inputCmd := m.input.Update(msg)
 			m.input = updated.(InputModel)
 			return m, inputCmd
@@ -517,60 +499,66 @@ func (m SessionModel) middleHeight() int {
 }
 
 // renderHeader returns the fixed 8-line header block containing the ASCII art
-// logo on the left and a welcome message on the right.
+// banner on the left and welcome/info on the right.
 func (m SessionModel) renderHeader() []string {
 	if m.width < 1 {
 		return make([]string, headerHeight)
 	}
 
-	// ASCII art logo (6 lines tall).
-	art := []string{
-		styleHeaderArt.Render("  ╭─────────╮"),
-		styleHeaderArt.Render("  │ MCP-SETU│"),
-		styleHeaderArt.Render("  │  ◆ ◆ ◆  │"),
-		styleHeaderArt.Render("  ╰─────────╯"),
+	// ASCII art banner — exactly 8 lines, placed on the left.
+	artRaw := []string{
+		`'##::::'##::'######::'########::::::::::::::::::'######::'########:'########::'##::::'##:`,
+		` ###::'###:'##... ##: ##.... ##::::::::::::::::'##... ##: ##.....::... ##..:: ##:::: ##:`,
+		` ####'####: ##:::..:: ##:::: ##:::::::::::::::: ##:::..:: ##:::::::::: ##:::: ##:::: ##:`,
+		` ## ### ##: ##::::::: ########:::::'#######::::. ######:: ######:::::: ##:::: ##::::'##:`,
+		` ##. #: ##: ##::::::: ##.....::::::........:::::..... ##: ##...::::::: ##:::: ##:::: ##:`,
+		` ##:.:: ##: ##::: ##: ##:::::::::::::::::::::::'##::: ##: ##:::::::::: ##:::: ##:::: ##:`,
+		` ##:::: ##:. ######:: ##:::::::::::::::::::::::. ######:: ########:::: ##::::. #######::`,
+		`..:::::..:::......:::..:::::::::::::::::::::::::......:::........:::::..::::::.......:::`,
+	}
+	art := make([]string, len(artRaw))
+	for i, line := range artRaw {
+		art[i] = styleHeaderArt.Render(line)
 	}
 
-	// Welcome message lines (right side).
+	// Welcome message lines (right side) — info only, no duplicate welcome text.
 	servers := ui.GetServersTableInfo(m.mcpClient)
 	serverCount := len(servers)
 	toolCount := len(m.mcpClient.GetAllTools())
 	welcome := []string{
-		styleHeaderWelcome.Render("Welcome to mcp-setu"),
+		styleHeaderWelcome.Render("MCP-SETU"),
 		styleHeaderMuted.Render("Model:   " + m.model),
 		styleHeaderMuted.Render(fmt.Sprintf("Servers: %d connected · %d tools", serverCount, toolCount)),
-		styleHeaderMuted.Render("↑/↓ history · PgUp/PgDn scroll · /help"),
+		styleHeaderMuted.Render("/help for commands · /quit to exit"),
+		styleHeaderMuted.Render("↑/↓ history · PgUp/PgDn scroll"),
 	}
 
-	// Build 8 lines. Combine art (4 lines) with welcome (4 lines).
-	// Lines 0-3: art on left, welcome on right (placed side by side).
-	// Lines 4-5: blank.
-	// Lines 6-7: separator.
+	// Build 8 lines. The banner spans all 8 rows on the left.
+	// The welcome panel is placed on the right of rows 0-4.
 	var lines []string
-	maxRows := 4 // art and welcome both have 4 lines
-	for i := 0; i < maxRows; i++ {
+	for i := 0; i < headerHeight; i++ {
 		left := ""
 		if i < len(art) {
 			left = art[i]
 		}
 		right := ""
 		if i < len(welcome) {
-			right = welcome[i]
+			right = "  │  " + welcome[i]
 		}
-		// Place left and right within the terminal width.
+
 		leftWidth := lipgloss.Width(left)
 		rightWidth := lipgloss.Width(right)
 		gap := m.width - leftWidth - rightWidth
+		if gap < 0 {
+			// Banner is wider than terminal: just render the banner line alone.
+			lines = append(lines, left)
+			continue
+		}
 		if gap < 1 {
 			gap = 1
 		}
 		lines = append(lines, left+strings.Repeat(" ", gap)+right)
 	}
-	// Two blank lines.
-	lines = append(lines, "", "")
-	// Separator spanning full width.
-	sep := styleSeparator.Render(strings.Repeat("─", m.width))
-	lines = append(lines, sep, "")
 
 	// Ensure exactly headerHeight lines.
 	for len(lines) < headerHeight {

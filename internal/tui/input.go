@@ -101,17 +101,14 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case tea.KeyEnter:
-			// Alt+Enter (Option+Enter on macOS) sends the message.
-			// Plain Enter inserts a newline for multiline input.
+			// Plain Enter sends the message (default chat behaviour).
+			// Alt+Enter (Option+Enter on macOS) inserts a newline for multiline input.
 			// In model picker mode this case is never reached because session.go
 			// handles tea.KeyEnter directly before delegating to InputModel.Update.
 			if m.mode == modeModelSelect {
 				// Guard: shouldn't happen, but be safe.
 			} else if msg.Alt {
-				// Alt+Enter (Ctrl+Enter on some terminals) → send.
-				return m, func() tea.Msg { return SendMsg{} }
-			} else {
-				// Plain Enter → insert newline.
+				// Alt+Enter → insert newline for multiline input.
 				if m.cursor < 0 || m.cursor > len(m.valueRunes) {
 					m.cursor = len(m.valueRunes)
 				}
@@ -124,6 +121,9 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Newlines cancel any active autocomplete.
 				m.mode = modeNormal
 				m.autocomplete = nil
+			} else {
+				// Plain Enter → send.
+				return m, func() tea.Msg { return SendMsg{} }
 			}
 
 		case tea.KeyBackspace:
@@ -263,7 +263,7 @@ func (m InputModel) RenderLine() string {
 
 	if len(m.valueRunes) == 0 {
 		// Empty input: show cursor at start with placeholder.
-		hint := lipgloss.NewStyle().Faint(true).Render("type message… alt+enter to send")
+		hint := lipgloss.NewStyle().Faint(true).Render("type message… enter to send · alt+enter for newline")
 		return cursorBlock + hint
 	}
 
@@ -295,7 +295,7 @@ func (m InputModel) RenderLine() string {
 	}
 	firstLineRunes := m.valueRunes[:firstLineEnd]
 	indicator := lipgloss.NewStyle().Faint(true).Render(
-		fmt.Sprintf(" (%s · alt+enter to send)", pluralLines(lineCount)),
+		fmt.Sprintf(" (%s · alt+enter for newline)", pluralLines(lineCount)),
 	)
 
 	// Render cursor within the first line if it falls there, otherwise at the end.

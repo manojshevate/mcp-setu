@@ -35,8 +35,9 @@ func TestSessionViewRendersWithSize(t *testing.T) {
 	if out == "" {
 		t.Fatal("expected non-empty view")
 	}
-	if !strings.Contains(out, "Welcome to mcp-setu") {
-		t.Errorf("expected banner in output, got: %s", out)
+	// The welcome message is shown in the header, not in the scrollable output.
+	if !strings.Contains(out, "MCP-SETU") {
+		t.Errorf("expected 'MCP-SETU' banner in header, got: %s", out)
 	}
 	if !strings.Contains(out, "❯") {
 		t.Errorf("expected input prompt at bottom, got: %s", out)
@@ -254,12 +255,12 @@ func TestSessionMultilineInput(t *testing.T) {
 	mUpdated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m = mUpdated.(*SessionModel)
 
-	// Type "line1", press Enter, type "line2".
+	// Type "line1", press Alt+Enter (multiline), type "line2".
 	for _, r := range "line1" {
 		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = mu.(*SessionModel)
 	}
-	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
 	m = mu.(*SessionModel)
 	for _, r := range "line2" {
 		mu, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
