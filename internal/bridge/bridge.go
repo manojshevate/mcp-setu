@@ -209,9 +209,6 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			b.stats.IterationCount += iteration
 			b.stats.LastResponseTime = duration
 			b.mu.Unlock()
-			if b.logger != nil {
-				b.logger.LogLLMResponse(resp.Content)
-			}
 			return resp.Content, nil
 		}
 
@@ -304,9 +301,9 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		ToolCalls: allToolCalls,
 	}
 
-	// Log response with tool calls if present
-	if b.logger != nil && len(allToolCalls) > 0 && fullContent.Len() > 0 {
-		b.logger.LogInfo(fmt.Sprintf("LLM response with %d tool calls: %s", len(allToolCalls), fullContent.String()))
+	// Log tool calls if present (response content is already displayed by printer)
+	if b.logger != nil && len(allToolCalls) > 0 {
+		b.logger.LogInfo(fmt.Sprintf("LLM iteration: %d tool calls", len(allToolCalls)))
 	}
 
 	return msg, nil

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,8 +70,8 @@ func (l *Logger) LogToolCall(name string, args map[string]any) {
 	if !l.enabled {
 		return
 	}
-	argsStr := fmt.Sprintf("%v", args)
-	l.write("TOOL_CALL_REQUEST", fmt.Sprintf("tool=%s args=%s", name, argsStr))
+	argsJSON, _ := json.Marshal(args)
+	l.write("TOOL_CALL_REQUEST", fmt.Sprintf("tool=%s args=%s", name, string(argsJSON)))
 }
 
 // LogToolResult logs a tool execution result.
