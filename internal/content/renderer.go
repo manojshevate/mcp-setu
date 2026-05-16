@@ -23,25 +23,34 @@ func NewRenderer(terminalWidth int) *Renderer {
 
 // Render takes structured content and returns formatted CLI output
 func (r *Renderer) Render(sc *StructuredContent) string {
+	if sc == nil {
+		return ""
+	}
+
 	switch sc.Type {
 	case TypeTable:
 		if table, ok := sc.Content.(map[string]interface{}); ok {
 			return r.renderTable(table)
 		}
+		// Log failed type assertion for debugging
+		return fmt.Sprintf("(warning: table content type assertion failed)\n")
 	case TypeList:
 		if list, ok := sc.Content.(map[string]interface{}); ok {
 			return r.renderList(list)
 		}
+		return fmt.Sprintf("(warning: list content type assertion failed)\n")
 	case TypeLink:
 		if link, ok := sc.Content.(map[string]interface{}); ok {
 			return r.renderLink(link)
 		}
+		return fmt.Sprintf("(warning: link content type assertion failed)\n")
 	case TypeCodeBlock:
 		if code, ok := sc.Content.(map[string]interface{}); ok {
 			return r.renderCodeBlock(code)
 		}
+		return fmt.Sprintf("(warning: code block content type assertion failed)\n")
 	}
-	return ""
+	return fmt.Sprintf("(warning: unknown content type: %s)\n", sc.Type)
 }
 
 // renderTable renders a table with proper column alignment

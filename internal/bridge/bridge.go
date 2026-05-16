@@ -204,6 +204,19 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 		// Check for tool calls.
 		if len(resp.ToolCalls) == 0 {
+			// If response is structured content, render it with formatting.
+			// This happens after streaming has completed, so we can detect and format the full response.
+			if b.printer != nil && b.IsStructuredContent(resp.Content) {
+				if sc, err := b.ParseStructuredContent(resp.Content); err == nil {
+					b.printer.PrintStructuredContent(sc)
+					if b.logger != nil {
+						b.logger.LogInfo("Structured content detected and rendered")
+					}
+				} else if b.logger != nil {
+					b.logger.LogError(fmt.Sprintf("Failed to parse structured content: %v", err))
+				}
+			}
+
 			// No tool calls, return the response content.
 			duration := time.Since(start)
 			b.mu.Lock()
