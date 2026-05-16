@@ -8,23 +8,33 @@ import (
 // FormatGuidance returns the structured content format guidance to be injected into system prompts.
 // This is automatically prepended to the user's system prompt to ensure the LLM uses structured formats.
 func FormatGuidance() string {
-	return `## Structured Content Format
+	return `## IMPORTANT: Response Format Instructions
 
-When presenting data that benefits from formatting (tables, lists, code blocks, links), use JSON-wrapped format:
+YOU MUST use structured JSON format for the following cases:
 
-For tables:
-{"type":"table","content":{"headers":["Col1","Col2"],"rows":[["val1","val2"]]}}
+1. TABLES - When user asks for data in table format, lists, comparisons, or any tabular data:
+   ALWAYS respond with: {"type":"table","content":{"headers":["Name","Value","Status"],"rows":[["Item1","Data1","Active"],["Item2","Data2","Inactive"]]}}
+   NEVER use markdown tables or ASCII tables.
 
-For lists:
-{"type":"list","content":{"type":"ordered","items":[{"text":"Item 1"},{"text":"Item 2"}]}}
+2. LISTS - When presenting steps, items, or nested information:
+   ALWAYS respond with: {"type":"list","content":{"type":"ordered","items":[{"text":"First step"},{"text":"Second step with details","children":[{"text":"Sub-step"}]}]}}
+   For unordered use "type":"unordered" instead.
 
-For code:
-{"type":"code","content":{"language":"bash","code":"command"}}
+3. CODE - When showing code examples, commands, or configuration:
+   ALWAYS respond with: {"type":"code","content":{"language":"bash","code":"your code here"}}
+   NEVER use markdown code blocks. ALWAYS specify the language.
 
-For links:
-{"type":"link","content":{"text":"Description","url":"https://example.com"}}
+4. LINKS - When providing URLs or resources:
+   ALWAYS respond with: {"type":"link","content":{"text":"Link description","url":"https://example.com"}}
 
-Use this format when appropriate. Plain text is fine for conversational responses.`
+5. DEFAULT - For conversational text, questions, and explanations:
+   Use plain text normally. You can mix plain text explanations with structured content.
+
+CRITICAL:
+- Respond ONLY with valid JSON for structured content (nothing before or after).
+- When user asks for "table", "list", "steps", "show me", "display", etc. - use appropriate structured format.
+- Do NOT wrap JSON in markdown code blocks or backticks.
+- Each response should be either plain text OR pure JSON, not both mixed on same line.`
 }
 
 // ContentType represents the type of structured content
