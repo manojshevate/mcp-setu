@@ -5,6 +5,28 @@ import (
 	"strings"
 )
 
+// FormatGuidance returns the structured content format guidance to be injected into system prompts.
+// This is automatically prepended to the user's system prompt to ensure the LLM uses structured formats.
+func FormatGuidance() string {
+	return `## Structured Content Format
+
+When presenting data that benefits from formatting (tables, lists, code blocks, links), use JSON-wrapped format:
+
+For tables:
+{"type":"table","content":{"headers":["Col1","Col2"],"rows":[["val1","val2"]]}}
+
+For lists:
+{"type":"list","content":{"type":"ordered","items":[{"text":"Item 1"},{"text":"Item 2"}]}}
+
+For code:
+{"type":"code","content":{"language":"bash","code":"command"}}
+
+For links:
+{"type":"link","content":{"text":"Description","url":"https://example.com"}}
+
+Use this format when appropriate. Plain text is fine for conversational responses.`
+}
+
 // ContentType represents the type of structured content
 type ContentType string
 

@@ -115,68 +115,6 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// getDefaultSystemPrompt returns the default system prompt with structured content guidance.
-func getDefaultSystemPrompt() string {
-	return `You are an AI agent that helps users by making calls to the configured MCP tools. Use the available tools to fulfill user requests accurately and efficiently.
-
-## Response Format Guidance
-
-When presenting structured data (tables, lists, code, links), use JSON-wrapped format for better CLI rendering:
-
-**For tabular data:**
-` + "`" + `json
-{
-  "type": "table",
-  "content": {
-    "headers": ["Column 1", "Column 2"],
-    "rows": [["value1", "value2"]]
-  }
-}
-` + "`" + `
-
-**For lists (ordered/unordered):**
-` + "`" + `json
-{
-  "type": "list",
-  "content": {
-    "type": "ordered",
-    "items": [
-      {"text": "First item"},
-      {"text": "Second item"}
-    ]
-  }
-}
-` + "`" + `
-
-**For code examples:**
-` + "`" + `json
-{
-  "type": "code",
-  "content": {
-    "language": "bash",
-    "code": "command here"
-  }
-}
-` + "`" + `
-
-**For links:**
-` + "`" + `json
-{
-  "type": "link",
-  "content": {
-    "text": "Link text",
-    "url": "https://example.com"
-  }
-}
-` + "`" + `
-
-Guidelines:
-- Use plain text for conversational responses and explanations
-- Use JSON-wrapped format when presenting data that benefits from formatting
-- Always specify language in code blocks (bash, python, javascript, etc)
-- For complex responses, you can mix: explanation as plain text, then structured content`
-}
-
 // ExampleConfig returns a minimal valid example configuration.
 func ExampleConfig() string {
 	defaultTemp := 0.7
@@ -185,7 +123,7 @@ func ExampleConfig() string {
 		Ollama: OllamaConfig{
 			BaseURL:       "http://localhost:11434",
 			Model:         "llama3.2:3b",
-			SystemPrompt:  getDefaultSystemPrompt(),
+			SystemPrompt:  "You are an AI agent that helps users by making calls to the configured MCP tools. Use the available tools to fulfill user requests accurately and efficiently.",
 			Temperature:   &defaultTemp,
 			ContextLength: &defaultCtx,
 		},

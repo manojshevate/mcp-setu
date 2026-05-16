@@ -155,6 +155,9 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 	start := time.Now()
 
+	// Inject structured content format guidance into system prompt (if not already present)
+	messages = b.injectFormatGuidance(messages)
+
 	// Log user message (last message in history before processing).
 	if b.logger != nil && len(messages) > 0 {
 		lastMsg := messages[len(messages)-1]
@@ -398,4 +401,27 @@ func (b *Bridge) IsStructuredContent(response string) bool {
 // ParseStructuredContent parses a structured content response
 func (b *Bridge) ParseStructuredContent(response string) (*content.StructuredContent, error) {
 	return content.ParseStructuredContent([]byte(response))
+}
+
+// injectFormatGuidance injects structured content format guidance into the system prompt.
+// This ensures the LLM always knows to use our format without user configuration.
+func (b *Bridge) injectFormatGuidance(messages []ollama.Message) []ollama.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// Find the system message (should be first)
+	if messages[0].Role != "system" {
+		return messages
+	}
+
+	// Check if guidance is already present
+	guidance := content.FormatGuidance()
+	if strings.Contains(messages[0].Content, "Structured Content Format") {
+		return messages
+	}
+
+	// Inject guidance into system prompt
+	messages[0].Content = messages[0].Content + "\n\n" + guidance
+	return messages
 }
