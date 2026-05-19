@@ -157,6 +157,7 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 	maxIterations := 20
 	iteration := 0
 	toolCallCount := 0
+	executedToolCalls := make(map[string]bool) // track all executed tool calls across iterations
 
 	for iteration < maxIterations {
 		iteration++
@@ -199,13 +200,38 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 			return resp.Content, nil
 		}
 
-		toolCallCount += len(resp.ToolCalls)
+		// Filter out duplicate tool calls (already executed in previous iterations).
+		var uniqueToolCalls []ollama.ToolCall
+		for _, call := range resp.ToolCalls {
+			toolName, toolArgs := call.NormalizeToolCall()
+			argsJSON, _ := json.Marshal(toolArgs)
+			callKey := toolName + "\x00" + string(argsJSON)
+			if !executedToolCalls[callKey] {
+				uniqueToolCalls = append(uniqueToolCalls, call)
+				executedToolCalls[callKey] = true
+			}
+		}
+
+		// If all tool calls were duplicates (already executed), treat as final response
+		// and return the content to avoid infinite loops.
+		if len(uniqueToolCalls) == 0 {
+			duration := time.Since(start)
+			b.mu.Lock()
+			b.stats.MessageCount++
+			b.stats.ToolCallCount += toolCallCount
+			b.stats.IterationCount += iteration
+			b.stats.LastResponseTime = duration
+			b.mu.Unlock()
+			return resp.Content, nil
+		}
+
+		toolCallCount += len(uniqueToolCalls)
 
 		// Execute tool calls in parallel for independent calls.
-		toolResults := b.executeToolsParallel(ctx, resp.ToolCalls)
+		toolResults := b.executeToolsParallel(ctx, uniqueToolCalls)
 
 		// Add tool results to conversation history in order.
-		for i := range resp.ToolCalls {
+		for i := range uniqueToolCalls {
 			result := toolResults[i]
 			// Add tool result as a message with proper "tool" role.
 			messages = append(messages, ollama.Message{
@@ -241,6 +267,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 	var allToolCalls []ollama.ToolCall
 	seenToolCalls := make(map[string]bool) // track tool calls already seen by name+args
 	started := false
+	hasToolCalls := false
 
 	// Stream chunks as they arrive in real-time
 	for event := range streamChan {
@@ -265,6 +292,7 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		// with different arguments, but identical repeats across stream events
 		// are filtered out.
 		if len(event.ToolCalls) > 0 {
+			hasToolCalls = true
 			for _, tc := range event.ToolCalls {
 				name, args := tc.NormalizeToolCall()
 				argsJSON, _ := json.Marshal(args)
@@ -277,8 +305,13 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		}
 	}
 
-	// Only print end if we actually started printing
-	if started {
+	// For tool-only responses (no text content but has tool calls), emit start/end
+	// to signal to the UI that a response is processing, even though it's invisible.
+	if !started && hasToolCalls {
+		b.printer.PrintResponseStart()
+		b.printer.PrintResponseEnd()
+	} else if started {
+		// Print end if we actually started printing text
 		b.printer.PrintResponseEnd()
 	}
 

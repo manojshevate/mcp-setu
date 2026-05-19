@@ -268,19 +268,20 @@ func TestProcessMessageWithMultipleToolCalls(t *testing.T) {
 	}
 }
 
-// TestProcessMessageMaxIterations tests the safety limit on iterations.
+// TestProcessMessageMaxIterations tests the safety limit on iterations with distinct tool calls.
 func TestProcessMessageMaxIterations(t *testing.T) {
 	printer := ui.NewPrinter(false)
 
-	// Create responses that always request tools (causes loop)
+	// Create responses with DISTINCT tool calls (different arguments) to test true infinite loops
 	responses := []ollama.Message{}
 	for i := 0; i < 25; i++ {
 		responses = append(responses, ollama.Message{
 			Role: "assistant",
 			ToolCalls: []ollama.ToolCall{
 				{
-					Name:      "infinite_tool",
-					Arguments: map[string]any{},
+					Name: "infinite_tool",
+					// Use different arguments each time to bypass deduplication
+					Arguments: map[string]any{"call_num": i},
 				},
 			},
 		})
@@ -307,6 +308,50 @@ func TestProcessMessageMaxIterations(t *testing.T) {
 
 	if err.Error() != "agent loop exceeded 20 iterations — possible infinite tool loop" {
 		t.Errorf("Expected iteration limit error, got: %v", err)
+	}
+}
+
+// TestDuplicateToolCallPrevention tests that duplicate tool calls across iterations are prevented.
+func TestDuplicateToolCallPrevention(t *testing.T) {
+	printer := ui.NewPrinter(false)
+
+	// Create responses that repeat the SAME tool call multiple times
+	responses := []ollama.Message{}
+	for i := 0; i < 25; i++ {
+		responses = append(responses, ollama.Message{
+			Role: "assistant",
+			ToolCalls: []ollama.ToolCall{
+				{
+					Name:      "same_tool",
+					Arguments: map[string]any{"id": 123}, // Same arguments
+				},
+			},
+		})
+	}
+
+	ollamaClient := NewMockOllamaClient(responses)
+	mcpClient := NewMockMCPClient()
+	mcpClient.AddTool("same_tool", "server")
+	mcpClient.SetToolResult("same_tool", "result")
+
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
+
+	messages := []ollama.Message{
+		{
+			Role:    "system",
+			Content: "You are a helpful assistant.",
+		},
+	}
+
+	// Should complete successfully after first iteration, not hit iteration limit
+	result, err := bridge.ProcessMessage(context.Background(), messages)
+	if err != nil {
+		t.Fatalf("Expected success with early exit, got error: %v", err)
+	}
+
+	// Result should be empty (tool-only response)
+	if result != "" {
+		t.Errorf("Expected empty result for tool-only response, got: %v", result)
 	}
 }
 

@@ -698,6 +698,9 @@ func (m *SessionModel) handleEvent(ev Event) {
 			m.respActive = false
 			if strings.TrimSpace(final) != "" {
 				m.appendAssistant(final)
+			} else {
+				// Tool-only response: append blank line for visual separation
+				m.appendOutput("")
 			}
 		}
 	}
