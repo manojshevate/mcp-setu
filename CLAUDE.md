@@ -126,3 +126,43 @@ Coverage targets: bridge (82%+), config (92%+), ui (65%+).
 3. Homebrew formula auto-updated for non-prerelease tags (requires `HOMEBREW_TAP_TOKEN` secret)
 
 See `RELEASE.md` for full checklist.
+
+## License Compliance & Dependency Documentation
+
+The project maintains three license-related files that **must be updated whenever dependencies change**:
+
+- **`LICENSE`** - Project's MIT license (rarely changes)
+- **`THIRD_PARTY_LICENSES.md`** - Comprehensive listing of all dependencies by license type, with links and attributions. **Update when**:
+  - Any `go.mod` dependency is added/removed/updated
+  - A dependency's license changes or is discovered to be different
+  - License terms or attribution requirements shift
+  
+- **`NOTICE`** - Apache 2.0 compliance file for Apache-licensed dependencies (currently: `spf13/cobra`, `inconshreveable/mousetrap`). **Update when**:
+  - New Apache 2.0 dependencies are added
+  - Apache-licensed dependencies are removed
+
+**Maintenance steps after dependency updates:**
+
+```bash
+# 1. Review new/changed dependencies
+go mod tidy
+go list -m all | sort
+
+# 2. Check licenses of updated modules
+# For each changed module, verify its license hasn't changed
+
+# 3. Update THIRD_PARTY_LICENSES.md with:
+#    - New/removed packages
+#    - Updated versions
+#    - New license types if any
+
+# 4. Update NOTICE if Apache 2.0 deps changed
+
+# 5. Update README.md if there are major license type additions/removals
+```
+
+**Key points:**
+- Keep THIRD_PARTY_LICENSES.md in sync with actual `go list -m all` output
+- Verify all external links (GitHub license file URLs) still resolve
+- Apache 2.0 requires NOTICE file; other licenses require documentation but not a separate notice file
+- Both THIRD_PARTY_LICENSES.md and NOTICE must be included in distributions (binary or source)

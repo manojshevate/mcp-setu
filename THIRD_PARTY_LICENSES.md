@@ -2,12 +2,14 @@
 
 This project includes the following third-party dependencies under their respective licenses.
 
+**Note on dependency scope:** This list includes all dependencies in the Go module graph, both direct dependencies (explicitly required in `go.mod`) and indirect/transitive dependencies (required by direct dependencies). Direct dependencies: `charmbracelet/bubbletea`, `charmbracelet/lipgloss`, `mattn/go-isatty`, `spf13/cobra`, `golang.org/x/term`.
+
 ## Apache License 2.0
 
 - **spf13/cobra** (v1.8.0) - https://github.com/spf13/cobra
   - CLI framework for building command-line applications
   - License: Apache License 2.0
-  - See: https://github.com/spf13/cobra/blob/main/LICENSE
+  - See: https://github.com/spf13/cobra/blob/main/LICENSE.txt
 
 - **inconshreveable/mousetrap** (v1.1.0) - https://github.com/inconshreveable/mousetrap
   - Prevents accidental invocation on Windows for Go CLI tools
