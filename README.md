@@ -164,3 +164,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/development.md](docs/developmen
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+This software includes third-party dependencies under their respective licenses. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for details, including Apache 2.0 compliance notes in [NOTICE](NOTICE).
