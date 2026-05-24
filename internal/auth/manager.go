@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/manojshevate/mcp-setu/internal/config"
 )
@@ -128,9 +129,9 @@ func (m *Manager) Logout(ctx context.Context, serverName string) error {
 
 // isTokenExpired checks if a token has expired.
 func isTokenExpired(token *StoredToken) bool {
-	if token.ExpiresIn <= 0 {
+	if token.ExpiresIn <= 0 || token.IssuedAt == 0 {
 		return false // No expiration info
 	}
-	// This is a simplification; normally we'd track when it was obtained
-	return false
+	expiresAt := time.Unix(token.IssuedAt, 0).Add(time.Duration(token.ExpiresIn) * time.Second)
+	return time.Now().After(expiresAt)
 }

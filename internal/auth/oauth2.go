@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -59,7 +61,7 @@ func (f *OAuth2Flow) ExchangeCodeForToken(ctx context.Context, code, pkceVerifie
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token exchange failed with status %d", resp.StatusCode)
 	}
 
 	var tokenResp TokenResponse
@@ -76,6 +78,7 @@ func (f *OAuth2Flow) ExchangeCodeForToken(ctx context.Context, code, pkceVerifie
 		RefreshToken: tokenResp.RefreshToken,
 		TokenType:    tokenResp.TokenType,
 		ExpiresIn:    tokenResp.ExpiresIn,
+		IssuedAt:     time.Now().Unix(),
 	}, nil
 }
 
@@ -98,7 +101,7 @@ func (f *OAuth2Flow) RefreshAccessToken(ctx context.Context, refreshToken string
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token refresh failed with status %d", resp.StatusCode)
 	}
 
 	var tokenResp TokenResponse
@@ -115,6 +118,7 @@ func (f *OAuth2Flow) RefreshAccessToken(ctx context.Context, refreshToken string
 		RefreshToken: tokenResp.RefreshToken,
 		TokenType:    tokenResp.TokenType,
 		ExpiresIn:    tokenResp.ExpiresIn,
+		IssuedAt:     time.Now().Unix(),
 	}, nil
 }
 
@@ -135,8 +139,15 @@ func (f *OAuth2Flow) LoginInteractive(ctx context.Context, serverName string) (*
 
 	redirectURI := loopback.GetRedirectURI()
 
+	// Generate random state for CSRF protection (RFC 6749 §10.12)
+	stateBytes := make([]byte, 32)
+	if _, err := rand.Read(stateBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate state: %w", err)
+	}
+	state := base64.RawURLEncoding.EncodeToString(stateBytes)
+	loopback.expectedState = state
+
 	// Build authorization URL
-	state := "state" // TODO: generate random state
 	authURL, err := BuildAuthorizationURL(f.authEndpoint, f.clientID, f.scopes, redirectURI, pkce, state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build authorization URL: %w", err)

@@ -15,6 +15,7 @@ type StoredToken struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int64  `json:"expires_in"`
+	IssuedAt     int64  `json:"issued_at"`  // Unix timestamp for expiry calculation
 }
 
 // TokenStorage provides a common interface for token persistence.
@@ -183,16 +184,20 @@ func (cs *ChainedStorage) Store(server string, token *StoredToken) error {
 }
 
 // Retrieve tries each storage backend in order until one has the token.
+// Returns the first token found, or nil if no backend has it.
+// Errors from individual backends are silently ignored to maintain fallback semantics.
 func (cs *ChainedStorage) Retrieve(server string) (*StoredToken, error) {
 	for _, storage := range cs.storages {
 		token, err := storage.Retrieve(server)
 		if err != nil {
+			// Silently continue to next backend on error
 			continue
 		}
 		if token != nil {
 			return token, nil
 		}
 	}
+	// All backends checked; no token found
 	return nil, nil
 }
 

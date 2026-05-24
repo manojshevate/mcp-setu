@@ -13,10 +13,11 @@ type PKCEPair struct {
 }
 
 // GeneratePKCE creates a new PKCE verifier and challenge using S256 method (recommended).
+// Uses 32 random bytes, which base64url-encodes to 43 characters (RFC 7636 minimum).
 func GeneratePKCE() (*PKCEPair, error) {
 	// RFC 7636: verifier is 43-128 characters, unreserved characters only.
-	// We use 128 bytes of random data encoded as base64url, which gives ~171 chars.
-	verifierBytes := make([]byte, 96)
+	// 32 random bytes → 43 base64url chars (256 bits of entropy, canonical size).
+	verifierBytes := make([]byte, 32)
 	_, err := rand.Read(verifierBytes)
 	if err != nil {
 		return nil, err

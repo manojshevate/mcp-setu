@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,11 +12,12 @@ import (
 
 // LoopbackServer handles the OAuth callback for the authorization code grant (RFC 8252).
 type LoopbackServer struct {
-	listener net.Listener
-	server   *http.Server
-	code     chan string
-	err      chan error
-	timeout  time.Duration
+	listener      net.Listener
+	server        *http.Server
+	code          chan string
+	err           chan error
+	timeout       time.Duration
+	expectedState string // CSRF protection (RFC 6749 §10.12)
 }
 
 // NewLoopbackServer creates a new loopback HTTP server listening on 127.0.0.1 with an ephemeral port.
@@ -108,6 +110,18 @@ func (ls *LoopbackServer) callbackHandler(w http.ResponseWriter, r *http.Request
 
 	// Parse the query parameters
 	params := r.URL.Query()
+
+	// Validate state parameter (RFC 6749 §10.12 CSRF protection)
+	state := params.Get("state")
+	if subtle.ConstantTimeCompare([]byte(state), []byte(ls.expectedState)) != 1 {
+		msg := "invalid state parameter"
+		select {
+		case ls.err <- fmt.Errorf("%s", msg):
+		default:
+		}
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 
 	// Check for error response
 	if errCode := params.Get("error"); errCode != "" {

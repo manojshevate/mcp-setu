@@ -40,7 +40,7 @@ func RequestDeviceAuthorization(ctx context.Context, tokenEndpoint, clientID str
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("device authorization failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("device authorization failed with status %d", resp.StatusCode)
 	}
 
 	var devResp DeviceAuthorizationResponse
@@ -148,5 +148,6 @@ func (dp *DevicePoller) pollOnce() (*StoredToken, error) {
 		RefreshToken: tokenResp.RefreshToken,
 		TokenType:    tokenResp.TokenType,
 		ExpiresIn:    tokenResp.ExpiresIn,
+		IssuedAt:     time.Now().Unix(),
 	}, nil
 }
