@@ -144,9 +144,11 @@ This shows which models are installed and which support tool calling.
 
 ## Authentication
 
-For HTTP-based servers, you can add authentication:
+For HTTP-based servers, you can add authentication. See **[Authentication Guide](./authentication.md)** for detailed setup instructions.
 
 ### Bearer Token
+
+Static API keys via environment variable (recommended):
 
 ```json
 {
@@ -156,36 +158,28 @@ For HTTP-based servers, you can add authentication:
       "url": "https://api.example.com/mcp",
       "auth": {
         "type": "bearer-token",
-        "token": "your-api-token"
+        "tokenEnvVar": "MCP_API_TOKEN"
       }
     }
   }
 }
 ```
 
-**Better practice** — Use environment variable:
-
-```json
-{
-  "auth": {
-    "type": "bearer-token",
-    "tokenEnvVar": "MCP_API_TOKEN"
-  }
-}
-```
-
-Then set before running:
-
+Set the token:
 ```bash
 export MCP_API_TOKEN="your-token"
 mcp-setu chat
 ```
 
+Or use convention-based lookup (no `auth` field needed):
+```bash
+export MCPSETU_PROTECTED_API_TOKEN="your-token"
+mcp-setu chat
+```
+
 ### OAuth 2.1
 
-> **⚠ Not yet implemented.** The `oauth2` auth type is planned for a future release. Configuring it currently returns an error: `OAuth2 auth type is not yet implemented`. Use `bearer-token` or `env` auth types instead.
-
-The config schema is reserved for when OAuth 2.1 support ships:
+Interactive OAuth with secure token storage in OS keyring.
 
 ```json
 {
@@ -196,8 +190,7 @@ The config schema is reserved for when OAuth 2.1 support ships:
       "auth": {
         "type": "oauth2",
         "authorizationServerUrl": "https://auth.example.com",
-        "clientId": "your-client-id",
-        "clientSecret": "your-client-secret",
+        "clientId": "mcp-setu",
         "scopes": ["mcp:read", "mcp:write"]
       }
     }
@@ -205,7 +198,23 @@ The config schema is reserved for when OAuth 2.1 support ships:
 }
 ```
 
-Until OAuth2 is implemented, use `bearer-token` with a pre-obtained token or the `env` type to read a token from an environment variable.
+Authenticate once:
+```bash
+mcp-setu auth login oauth-server  # Opens browser, stores token securely
+mcp-setu chat                      # Uses stored token automatically
+```
+
+Check status:
+```bash
+mcp-setu auth status
+```
+
+Logout (remove stored credentials):
+```bash
+mcp-setu auth logout oauth-server
+```
+
+👉 **[Full Authentication Guide](./authentication.md)** — Environment variables, keyring, OAuth flow, troubleshooting
 
 ## Claude Desktop Compatibility
 
