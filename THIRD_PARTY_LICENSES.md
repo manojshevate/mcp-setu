@@ -2,7 +2,7 @@
 
 This project includes the following third-party dependencies under their respective licenses.
 
-**Note on dependency scope:** This list includes all dependencies in the Go module graph, both direct dependencies (explicitly required in `go.mod`) and indirect/transitive dependencies (required by direct dependencies). Direct dependencies: `charmbracelet/bubbletea`, `charmbracelet/lipgloss`, `mattn/go-isatty`, `spf13/cobra`, `golang.org/x/term`.
+**Note on dependency scope:** This list includes all dependencies in the Go module graph, both direct dependencies (explicitly required in `go.mod`) and indirect/transitive dependencies (required by direct dependencies). Direct dependencies: `charmbracelet/bubbletea`, `charmbracelet/lipgloss`, `mattn/go-isatty`, `spf13/cobra`, `golang.org/x/term`, `golang.org/x/oauth2`, `zalando/go-keyring`.
 
 ## Apache License 2.0
 
@@ -15,6 +15,12 @@ This project includes the following third-party dependencies under their respect
   - Prevents accidental invocation on Windows for Go CLI tools
   - License: Apache License 2.0
   - See: https://github.com/inconshreveable/mousetrap/blob/master/LICENSE
+
+- **zalando/go-keyring** (v0.2.8) - https://github.com/zalando/go-keyring
+  - Go library for secure credential storage using OS keyrings
+  - Supports macOS Keychain, Linux Secret Service, Windows Credential Manager
+  - License: Apache License 2.0
+  - See: https://github.com/zalando/go-keyring/blob/master/LICENSE
 
 > **Note:** Apache 2.0 licensed software requires attribution and distribution of license terms. See `NOTICE` file for additional attribution requirements.
 
@@ -82,6 +88,10 @@ This project includes the following third-party dependencies under their respect
   - Markdown to man page converter
   - License: MIT
 
+- **danieljoos/wincred** (v1.2.3) - https://github.com/danieljoos/wincred
+  - Windows credential storage (used by go-keyring on Windows)
+  - License: MIT
+
 ## BSD License (2-Clause & 3-Clause)
 
 - **golang.org/x/sys** (v0.44.0) - https://github.com/golang/sys
@@ -99,6 +109,11 @@ This project includes the following third-party dependencies under their respect
   - License: BSD 3-Clause
   - See: https://github.com/golang/text/blob/master/LICENSE
 
+- **golang.org/x/oauth2** (v0.36.0) - https://github.com/golang/oauth2
+  - OAuth 2.0 client library
+  - License: BSD 3-Clause
+  - See: https://github.com/golang/oauth2/blob/master/LICENSE
+
 - **golang.org/x/exp** (v0.0.0-20220909182711-5c715a9e8561) - https://github.com/golang/exp
   - Experimental Go packages
   - License: BSD 3-Clause
@@ -115,6 +130,11 @@ This project includes the following third-party dependencies under their respect
   - Markdown processor
   - License: BSD 2-Clause
   - See: https://github.com/russross/blackfriday/blob/master/LICENSE.txt
+
+- **godbus/dbus/v5** (v5.2.2) - https://github.com/godbus/dbus
+  - D-Bus client library (used by go-keyring on Linux)
+  - License: BSD 2-Clause
+  - See: https://github.com/godbus/dbus/blob/master/LICENSE
 
 ## ISC License
 
@@ -168,10 +188,10 @@ This project includes the following third-party dependencies under their respect
 
 | License Type | Count | Notes |
 |--------------|-------|-------|
-| MIT | 14 | Most permissive, minimal attribution needed |
-| Apache 2.0 | 2 | Requires NOTICE file for attribution |
-| BSD 3-Clause | 6 | Permissive, requires license text |
-| BSD 2-Clause | 2 | Permissive, requires license text |
+| MIT | 15 | Most permissive, minimal attribution needed |
+| Apache 2.0 | 3 | Requires NOTICE file for attribution |
+| BSD 3-Clause | 7 | Permissive, requires license text |
+| BSD 2-Clause | 3 | Permissive, requires license text |
 | ISC | 1 | Permissive license |
 
 ## Compliance Notes
@@ -180,6 +200,7 @@ This project includes the following third-party dependencies under their respect
 The following software is distributed under the Apache License 2.0:
 - `spf13/cobra`
 - `inconshreveable/mousetrap`
+- `zalando/go-keyring`
 
 When distributing this software, you are required to:
 1. Include a copy of the Apache License 2.0
@@ -219,4 +240,4 @@ Full license texts are available at:
 
 ---
 
-**Last Updated:** 2026-05-22
+**Last Updated:** 2026-05-24

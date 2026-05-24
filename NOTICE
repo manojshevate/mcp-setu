@@ -10,6 +10,10 @@ This product includes software developed by:
    Copyright (c) 2014 Alan Shreve
    Licensed under the Apache License 2.0
 
+3. zalando/go-keyring (https://github.com/zalando/go-keyring)
+   Copyright (c) 2016 Zalando SE
+   Licensed under the Apache License 2.0
+
 The Apache License 2.0 terms for the above dependencies are available at:
 https://www.apache.org/licenses/LICENSE-2.0
 

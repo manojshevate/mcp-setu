@@ -135,6 +135,9 @@ func main() {
 	}
 	rootCmd.AddCommand(initCmd)
 
+	// Auth subcommand group.
+	rootCmd.AddCommand(newAuthCmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
