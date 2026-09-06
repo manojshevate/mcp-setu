@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/manojshevate/mcp-setu/internal/logger"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 	"github.com/manojshevate/mcp-setu/internal/ui"
@@ -138,7 +139,7 @@ func TestProcessMessageNoTools(t *testing.T) {
 	})
 	mcpClient := NewMockMCPClient()
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	messages := []ollama.Message{
 		{
@@ -187,7 +188,7 @@ func TestProcessMessageWithToolCall(t *testing.T) {
 	mcpClient.AddTool("test_tool", "test_server")
 	mcpClient.SetToolResult("test_tool", "test result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	messages := []ollama.Message{
 		{
@@ -249,7 +250,7 @@ func TestProcessMessageWithMultipleToolCalls(t *testing.T) {
 	mcpClient.SetToolResult("tool_b", "b_result")
 	mcpClient.SetToolResult("tool_c", "c_result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	messages := []ollama.Message{
 		{
@@ -291,7 +292,7 @@ func TestProcessMessageMaxIterations(t *testing.T) {
 	mcpClient.AddTool("infinite_tool", "server")
 	mcpClient.SetToolResult("infinite_tool", "result")
 
-	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	messages := []ollama.Message{
 		{
@@ -321,7 +322,7 @@ func TestExecuteToolsParallel(t *testing.T) {
 	mcpClient.SetToolResult("tool_2", "result_2")
 	mcpClient.SetToolResult("tool_3", "result_3")
 
-	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	toolCalls := []ollama.ToolCall{
 		{Name: "tool_1", Arguments: map[string]any{}},
@@ -356,7 +357,7 @@ func TestBuildToolsList(t *testing.T) {
 	mcpClient.AddTool("list_files", "filesystem")
 	mcpClient.AddTool("execute_query", "sqlite")
 
-	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer)
+	bridge := NewBridge(nil, mcpClient, "test-model", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	tools := bridge.buildToolsList()
 
@@ -374,7 +375,7 @@ func TestNewBridge(t *testing.T) {
 	ollamaClient := NewMockOllamaClient([]ollama.Message{})
 	mcpClient := NewMockMCPClient()
 
-	bridge := NewBridge(ollamaClient, mcpClient, "gemma4:e4b", 0.7, 4096, printer)
+	bridge := NewBridge(ollamaClient, mcpClient, "gemma4:e4b", 0.7, 4096, printer, logger.NewDisabledLogger())
 
 	if bridge.model != "gemma4:e4b" {
 		t.Errorf("Expected model %q, got %q", "gemma4:e4b", bridge.model)

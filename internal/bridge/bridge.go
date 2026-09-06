@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/manojshevate/mcp-setu/internal/content"
+	"github.com/manojshevate/mcp-setu/internal/logger"
 	"github.com/manojshevate/mcp-setu/internal/mcp"
 	"github.com/manojshevate/mcp-setu/internal/ollama"
 )
@@ -23,6 +25,7 @@ type Printer interface {
 	PrintResponseEnd()
 	PrintToolCall(name string, args map[string]any)
 	PrintToolResult(name string, result string, truncated bool)
+	PrintStructuredContent(sc *content.StructuredContent)
 }
 
 // OllamaClient defines the interface for Ollama API interactions.
@@ -63,13 +66,14 @@ type Bridge struct {
 	temperature   float64
 	contextLength int
 	printer       Printer
+	logger        *logger.Logger
 	stats         Stats
 	startTime     time.Time
 	mu            sync.RWMutex // protects model and stats
 }
 
 // NewBridge creates a new Bridge.
-func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, contextLength int, printer Printer) *Bridge {
+func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, temperature float64, contextLength int, printer Printer, log *logger.Logger) *Bridge {
 	return &Bridge{
 		ollamaClient:  ollamaClient,
 		mcpClient:     mcpClient,
@@ -77,6 +81,7 @@ func NewBridge(ollamaClient OllamaClient, mcpClient MCPClient, model string, tem
 		temperature:   temperature,
 		contextLength: contextLength,
 		printer:       printer,
+		logger:        log,
 		startTime:     time.Now(),
 	}
 }
@@ -150,6 +155,17 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 	start := time.Now()
 
+	// Inject structured content format guidance into system prompt (if not already present)
+	messages = b.injectFormatGuidance(messages)
+
+	// Log user message (last message in history before processing).
+	if b.logger != nil && len(messages) > 0 {
+		lastMsg := messages[len(messages)-1]
+		if lastMsg.Role == "user" {
+			b.logger.LogUserMessage(lastMsg.Content)
+		}
+	}
+
 	// Build tools list for Ollama.
 	tools := b.buildToolsList()
 
@@ -188,6 +204,19 @@ func (b *Bridge) ProcessMessage(ctx context.Context, messages []ollama.Message) 
 
 		// Check for tool calls.
 		if len(resp.ToolCalls) == 0 {
+			// If response is structured content, render it with formatting.
+			// This happens after streaming has completed, so we can detect and format the full response.
+			if b.printer != nil && b.IsStructuredContent(resp.Content) {
+				if sc, err := b.ParseStructuredContent(resp.Content); err == nil {
+					b.printer.PrintStructuredContent(sc)
+					if b.logger != nil {
+						b.logger.LogInfo("Structured content detected and rendered")
+					}
+				} else if b.logger != nil {
+					b.logger.LogError(fmt.Sprintf("Failed to parse structured content: %v", err))
+				}
+			}
+
 			// No tool calls, return the response content.
 			duration := time.Since(start)
 			b.mu.Lock()
@@ -288,6 +317,11 @@ func (b *Bridge) processMessageWithStreaming(ctx context.Context, model string, 
 		ToolCalls: allToolCalls,
 	}
 
+	// Log tool calls if present (response content is already displayed by printer)
+	if b.logger != nil && len(allToolCalls) > 0 {
+		b.logger.LogInfo(fmt.Sprintf("LLM iteration: %d tool calls", len(allToolCalls)))
+	}
+
 	return msg, nil
 }
 
@@ -315,14 +349,21 @@ func (b *Bridge) executeToolsParallel(ctx context.Context, calls []ollama.ToolCa
 			toolName, toolArgs := toolCall.NormalizeToolCall()
 
 			b.printer.PrintToolCall(toolName, toolArgs)
+			if b.logger != nil {
+				b.logger.LogToolCall(toolName, toolArgs)
+			}
 
 			result, err := b.mcpClient.CallTool(ctx, toolName, toolArgs)
+			success := err == nil
 			if err != nil {
 				result = fmt.Sprintf("error: %v", err)
 				b.printer.PrintWarning(fmt.Sprintf("Tool %q failed: %v", toolName, err))
 			}
 
 			b.printer.PrintToolResult(toolName, result, len(result) > 120)
+			if b.logger != nil {
+				b.logger.LogToolResult(toolName, result, success)
+			}
 			results[index] = result
 		}(i, call)
 	}
@@ -363,4 +404,37 @@ func (b *Bridge) buildToolsList() []ollama.Tool {
 	})
 
 	return tools
+}
+
+// IsStructuredContent checks if the response is JSON-wrapped structured content
+func (b *Bridge) IsStructuredContent(response string) bool {
+	return content.IsStructuredContent(response)
+}
+
+// ParseStructuredContent parses a structured content response
+func (b *Bridge) ParseStructuredContent(response string) (*content.StructuredContent, error) {
+	return content.ParseStructuredContent([]byte(response))
+}
+
+// injectFormatGuidance injects structured content format guidance into the system prompt.
+// This ensures the LLM always knows to use our format without user configuration.
+func (b *Bridge) injectFormatGuidance(messages []ollama.Message) []ollama.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// Find the system message (should be first)
+	if messages[0].Role != "system" {
+		return messages
+	}
+
+	// Check if guidance is already present
+	guidance := content.FormatGuidance()
+	if strings.Contains(messages[0].Content, "Structured Content Format") {
+		return messages
+	}
+
+	// Inject guidance into system prompt
+	messages[0].Content = messages[0].Content + "\n\n" + guidance
+	return messages
 }
